@@ -1,0 +1,1930 @@
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CilamAI</title>
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./src/style.css" />
+  <script>
+    // Seed the saved appearance before first paint so the splash (and the window
+    // background) never flash the default palette. main.js still owns the state
+    // afterwards; this only applies the same values earlier.
+    (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('cilamai-settings') || '{}')
+        const choice = saved.theme || 'dark'
+        const resolved = choice === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : choice
+        document.documentElement.dataset.theme = resolved
+        document.documentElement.dataset.reduceMotion = saved['pref-reduce-motion'] || 'system'
+        document.documentElement.dataset.animations = saved.animationsEnabled === false ? 'off' : 'on'
+      } catch {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    })()
+  </script>
+</head>
+
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <symbol id="icon-1" viewBox="0 0 16 16">
+      <path d="M13 8H3M7 4 3 8l4 4" />
+    </symbol>
+    <symbol id="icon-2" viewBox="0 0 16 16">
+      <path d="M3 8h9M8 4l4 4-4 4" />
+    </symbol>
+    <symbol id="icon-3" viewBox="0 0 24 24">
+      <path d="m9 18 6-6-6-6" />
+    </symbol>
+    <symbol id="icon-4" viewBox="0 0 10 10">
+      <line x1="0.5" y1="5" x2="9.5" y2="5" />
+    </symbol>
+    <symbol id="icon-5" viewBox="0 0 10 10">
+      <rect x="0.5" y="0.5" width="9" height="9" rx="1" />
+    </symbol>
+    <symbol id="icon-6" viewBox="0 0 10 10">
+      <path d="M3 3h6.5v6.5H3z" />
+      <path d="M7 3V1.5H1v6H2.5" />
+    </symbol>
+    <symbol id="icon-7" viewBox="0 0 10 10">
+      <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" />
+      <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" />
+    </symbol>
+    <symbol id="icon-8" viewBox="0 0 24 24">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </symbol>
+    <symbol id="icon-9" viewBox="0 0 24 24">
+      <path
+        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+    </symbol>
+    <symbol id="icon-10" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </symbol>
+    <symbol id="icon-11" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3" />
+      <path
+        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 .33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </symbol>
+    <symbol id="icon-12" viewBox="0 0 24 24">
+      <path
+        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+    </symbol>
+    <symbol id="icon-13" viewBox="0 0 24 24">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </symbol>
+    <symbol id="icon-14" viewBox="0 0 24 24">
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="5 12 12 5 19 12" />
+    </symbol>
+    <symbol id="icon-15" viewBox="0 0 50 50">
+      <circle class="md3-loader-circle md3-loader-path" cx="25" cy="25" r="20"></circle>
+    </symbol>
+    <symbol id="icon-16" viewBox="0 0 24 24">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </symbol>
+    <symbol id="icon-17" viewBox="0 0 24 24">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </symbol>
+    <symbol id="icon-18" viewBox="0 0 24 24">
+      <path
+        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </symbol>
+    <symbol id="icon-19" viewBox="0 0 24 24">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </symbol>
+    <symbol id="icon-20" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9" />
+    </symbol>
+    <symbol id="icon-21" viewBox="0 0 24 24">
+      <path
+        d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4">
+      </path>
+    </symbol>
+    <symbol id="icon-22" viewBox="0 0 24 24">
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="5 12 12 5 19 12" />
+    </symbol>
+    <symbol id="icon-23" viewBox="0 0 24 24">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </symbol>
+    <symbol id="icon-user" viewBox="0 0 24 24">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </symbol>
+    <symbol id="icon-24" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#121212" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#1c1c1c" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#2a2a2a" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#2a2a2a" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#2a2a2a" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#2a2a2a" />
+      <circle cx="86" cy="48" r="4" fill="#f0f0f0" />
+    </symbol>
+    <symbol id="icon-25" viewBox="0 0 96 60">
+      <rect width="48" height="60" x="0" rx="8" fill="#ffffff" />
+      <rect width="48" height="60" x="48" fill="#121212" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#f2f2f2" />
+      <rect x="52" y="4" width="22" height="52" rx="6" fill="#1c1c1c" />
+      <rect x="30" y="10" width="14" height="7" rx="3.5" fill="#e6e6e6" />
+      <rect x="30" y="24" width="14" height="12" rx="6" fill="#e6e6e6" />
+      <rect x="78" y="10" width="14" height="7" rx="3.5" fill="#2a2a2a" />
+      <rect x="78" y="24" width="14" height="12" rx="6" fill="#2a2a2a" />
+      <circle cx="86" cy="48" r="4" fill="#121212" />
+    </symbol>
+    <symbol id="icon-26" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#ffffff" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#f2f2f2" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#e6e6e6" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#e6e6e6" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#e6e6e6" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#e6e6e6" />
+      <circle cx="86" cy="48" r="4" fill="#111111" />
+    </symbol>
+    <symbol id="icon-27" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#0d1524" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#16233c" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#223252" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#223252" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#223252" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#223252" />
+      <circle cx="86" cy="48" r="4" fill="#4d9fff" />
+    </symbol>
+    <symbol id="icon-28" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#1c0d0d" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#331616" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#4a2020" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#4a2020" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#4a2020" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#4a2020" />
+      <circle cx="86" cy="48" r="4" fill="#ff5a5a" />
+    </symbol>
+    <symbol id="icon-29" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#171407" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#2b250e" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#3f3618" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#3f3618" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#3f3618" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#3f3618" />
+      <circle cx="86" cy="48" r="4" fill="#f5c518" />
+    </symbol>
+    <symbol id="icon-30" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#0c1710" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#12261a" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#1a3524" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#1a3524" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#1a3524" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#1a3524" />
+      <circle cx="86" cy="48" r="4" fill="#3ddc84" />
+    </symbol>
+    <symbol id="icon-31" viewBox="0 0 96 60">
+      <rect width="96" height="60" rx="8" fill="#000000" />
+      <rect x="4" y="4" width="22" height="52" rx="6" fill="#000000" />
+      <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#1a1a1a" />
+      <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#1a1a1a" />
+      <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#1a1a1a" />
+      <rect x="30" y="24" width="60" height="12" rx="6" fill="#1a1a1a" />
+      <circle cx="86" cy="48" r="4" fill="#f0f0f0" />
+    </symbol>
+    <symbol id="icon-32" viewBox="0 0 24 24">
+      <path
+        d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </symbol>
+    <symbol id="icon-33" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </symbol>
+    <symbol id="icon-34" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+    </symbol>
+    <symbol id="icon-35" viewBox="0 0 24 24">
+      <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z" />
+      <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z" />
+    </symbol>
+    <symbol id="icon-36" viewBox="0 0 24 24">
+      <rect x="8" y="8" width="14" height="14" rx="2" />
+      <path d="M4 16V4h12" />
+    </symbol>
+    <symbol id="icon-37" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12" />
+    </symbol>
+    <symbol id="icon-38" viewBox="0 0 24 24">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </symbol>
+    <symbol id="icon-39" viewBox="0 0 24 24">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </symbol>
+    <symbol id="icon-40" viewBox="0 0 24 24">
+      <path
+        d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </symbol>
+    <symbol id="icon-41" viewBox="0 0 24 24">
+      <path
+        d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 2.3l1.38 9a2 2 0 0 0 2 1.7zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+    </symbol>
+    <symbol id="icon-42" viewBox="0 0 96 96">
+      <circle cx="48" cy="48" r="27" />
+      <path
+        d="M21 48h54M48 21c8 8 12 17 12 27s-4 19-12 27c-8-8-12-17-12-27s4-19 12-27ZM27 31c12 6 30 6 42 0M27 65c12-6 30-6 42 0" />
+    </symbol>
+    <symbol id="icon-43" viewBox="0 0 96 96">
+      <path d="m48 19 27 15v28L48 77 21 62V34l27-15Z" />
+      <path d="m21 34 27 15 27-15M48 49v28M36 27l27 15" />
+    </symbol>
+    <symbol id="icon-44" viewBox="0 0 96 96">
+      <circle cx="48" cy="48" r="12" />
+      <path d="M48 19v10M48 67v10M19 48h10M67 48h10M28 28l7 7M61 61l7 7M68 28l-7 7M35 61l-7 7" />
+      <circle cx="48" cy="48" r="27" />
+    </symbol>
+    <symbol id="icon-45" viewBox="0 0 96 96">
+      <path d="M24 25h48v35H42L29 72V60h-5V25Z" />
+      <path d="M35 42h26M35 50h17" />
+    </symbol>
+    <symbol id="icon-46" viewBox="0 0 96 96">
+      <path d="m48 18 7 20 21 1-16 13 5 21-17-12-17 12 5-21-16-13 21-1 7-20Z" />
+    </symbol>
+    <symbol id="icon-47" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </symbol>
+    <symbol id="icon-48" viewBox="0 0 24 24">
+      <path d="M20 6L9 17l-5-5" />
+    </symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </symbol>
+  </svg>
+
+  <div class="startup-loading" id="startup-loading">
+    <div class="startup-skeleton" aria-hidden="true">
+      <span class="startup-skel startup-skel-btn"></span>
+      <span class="startup-skel startup-skel-btn"></span>
+      <span class="startup-skel startup-skel-label"></span>
+      <span class="startup-skel startup-skel-row"></span>
+      <span class="startup-skel startup-skel-row"></span>
+      <span class="startup-skel startup-skel-row"></span>
+      <span class="startup-skel-spacer"></span>
+      <span class="startup-skel-account">
+        <span class="startup-skel startup-skel-avatar"></span>
+        <span class="startup-skel startup-skel-line"></span>
+        <span class="startup-skel startup-skel-gear"></span>
+      </span>
+    </div>
+    <div class="startup-page" aria-hidden="true">
+      <span class="startup-skel startup-skel-mark"></span>
+      <span class="startup-composer">
+        <span class="startup-skel startup-skel-input"></span>
+        <span class="startup-composer-row">
+          <span class="startup-skel startup-skel-attach"></span>
+          <span class="startup-skel startup-skel-chip"></span>
+          <span class="startup-skel-spacer"></span>
+          <span class="startup-skel startup-skel-send"></span>
+        </span>
+      </span>
+    </div>
+  </div>
+
+  <div class="titlebar">
+    <span class="dev-badge" data-dev-badge hidden
+      title="Development build, running from the Electron dev server (npm run dev). Press F12 or Ctrl+Shift+I for DevTools.">DEV</span>
+    <div class="titlebar-actions">
+      <div class="tb-menu-item more-menu-wrap" data-menu="more">
+        <button type="button" class="tb-action-btn" data-more-toggle aria-label="More" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="7" x2="20" y2="7" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="17" x2="20" y2="17" />
+          </svg>
+        </button>
+        <div class="tb-menu-dropdown more-dropdown">
+          <button type="button" data-action="feedback"><span class="tb-menu-label">Feedback</span></button>
+          <hr />
+          <button type="button" data-action="help"><span class="tb-menu-label">About CilamAI</span></button>
+          <button type="button" data-action="release-notes"><span class="tb-menu-label">Release Notes</span></button>
+        </div>
+      </div>
+      <button type="button" class="tb-action-btn" data-command-palette-toggle aria-label="Search commands" title="Search commands">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <use href="#icon-10"></use>
+        </svg>
+      </button>
+      <span class="tb-skel-group" aria-hidden="true">
+        <span class="startup-skel tb-skel tb-skel-icon"></span>
+        <span class="startup-skel tb-skel tb-skel-icon tb-skel-icon-late"></span>
+      </span>
+    </div>
+    <div class="titlebar-controls">
+      <button type="button" class="tb-update" data-update aria-label="Update CilamAI">
+        <span class="tb-update-label">Update</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14" />
+          <polyline points="5 12 12 19 19 12" />
+        </svg>
+      </button>
+      <span class="startup-skel tb-skel tb-skel-toggle" aria-hidden="true"></span>
+      <span class="startup-skel tb-skel tb-skel-toggle tb-skel-toggle-late" aria-hidden="true"></span>
+      <button type="button" class="tb-btn" data-sidebar-toggle aria-label="Toggle Sidebar">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+          <path class="icon-arrow-collapse" d="M15 10l-3 2 3 2" />
+          <path class="icon-arrow-expand" d="M15 10l3 2-3 2" hidden />
+        </svg>
+      </button>
+      <button type="button" class="tb-btn" data-panel-toggle aria-label="Toggle Panel" title="Toggle terminal panel">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+      <button type="button" class="tb-btn tb-win-glyph" data-win-min aria-label="Minimize"><span aria-hidden="true">&#xE921;</span></button>
+      <button type="button" class="tb-btn tb-win-glyph" data-win-max aria-label="Maximize">
+        <span class="tb-max" aria-hidden="true">&#xE922;</span>
+        <span class="tb-restore" aria-hidden="true" hidden>&#xE923;</span>
+      </button>
+      <button type="button" class="tb-btn tb-close tb-win-glyph" data-win-close aria-label="Close"><span aria-hidden="true">&#xE8BB;</span></button>
+    </div>
+  </div>
+
+  <nav class="icon-rail sidebar" aria-label="Navigation">
+    <div class="sidebar-scroll">
+      <button class="rail-btn sidebar-item active" data-view="home" aria-label="Home">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <use href="#icon-home"></use>
+        </svg>
+        <span class="sidebar-label" data-i18n="home">Home</span>
+      </button>
+      <button class="rail-btn sidebar-item" data-view="chat" data-reset="true" aria-label="New session">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <use href="#icon-8"></use>
+        </svg>
+        <span class="sidebar-label" data-i18n="newSession">New session</span>
+      </button>
+
+      <div class="sidebar-section" data-i18n="sessions">Sessions</div>
+      <div class="sidebar-sessions" data-sidebar-sessions></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-account-row">
+        <button type="button" class="sidebar-account" data-sidebar-account aria-label="Account">
+          <span class="sidebar-account-avatar" id="sidebar-account-avatar"></span>
+          <span class="sidebar-account-info">
+            <span class="sidebar-account-name" id="sidebar-account-name">Sign in</span>
+          </span>
+        </button>
+        <button type="button" class="rail-btn sidebar-item sidebar-settings-btn" data-view="settings"
+          aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <use href="#icon-11"></use>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0"></div>
+
+  <main class="main">
+    <p class="welcome-mark">Hey! What&rsquo;s on your mind today?</p>
+    <div class="chat"></div>
+    <button type="button" class="scroll-bottom-btn" aria-label="Scroll to bottom">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <use href="#icon-14"></use>
+      </svg>
+    </button>
+
+    <div class="session-loading" hidden>
+      <svg class="search-loader md3-loader" viewBox="0 0 50 50">
+        <use href="#icon-15"></use>
+      </svg>
+      <span class="loading-text" data-i18n="loading">Loading...</span>
+    </div>
+
+    <div class="limited-banner" hidden>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <use href="#icon-16"></use>
+      </svg>
+      <span data-i18n="limitedOutput">This is the limit of the free tier.</span>
+    </div>
+
+    <form class="composer">
+      <div class="composer-files" hidden></div>
+      <div class="commands-menu" hidden>
+        <button type="button" class="command-item" data-command="/upload">
+          <span>upload</span><span class="command-desc">Attach a file</span>
+        </button>
+        <button type="button" class="command-item" data-command="/screenshot">
+          <span>screenshot</span><span class="command-desc">Attach a screenshot</span>
+        </button>
+        <button type="button" class="command-item" data-command="/connect">
+          <span>connect</span><span class="command-desc">Connect your account</span>
+        </button>
+      </div>
+      <textarea rows="1" placeholder="Ask anything, / for commands..." class="composer-input"
+        data-i18n-placeholder="inputPlaceholder" aria-label="Message" spellcheck="false"></textarea>
+      <div class="composer-actions">
+        <div class="attach-menu-wrap">
+          <button type="button" class="composer-btn attach" aria-label="Attach" data-attach-toggle>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <div class="attach-menu" hidden>
+            <button type="button" class="attach-menu-item" data-upload>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <use href="#icon-18"></use>
+              </svg>
+              <span data-i18n="uploadFile">Upload File</span>
+            </button>
+            <button type="button" class="attach-menu-item" data-screenshot>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <use href="#icon-19"></use>
+              </svg>
+              <span data-i18n="takeScreenshot">Take a Screenshot</span>
+            </button>
+            <button type="button" class="attach-menu-item" data-slash-menu>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="16" y1="3" x2="8" y2="21"></line>
+              </svg>
+              <span>Slash commands</span>
+            </button>
+          </div>
+        </div>
+        <div class="model-select">
+          <button type="button" class="model-select-btn" data-model-toggle aria-label="Select model">
+            <span class="model-name">GPT-OSS 120B</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <use href="#icon-3"></use>
+            </svg>
+          </button>
+          <div class="model-menu" hidden>
+            <div class="model-search-wrap">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <use href="#icon-10"></use>
+              </svg>
+              <input type="text" class="model-search" placeholder="Search models..." aria-label="Search models" />
+            </div>
+            <div class="model-options"></div>
+          </div>
+        </div>
+        <div class="composer-spacer"></div>
+        <button type="submit" class="composer-btn send" aria-label="Send" hidden>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <use href="#icon-22"></use>
+          </svg>
+        </button>
+        <button type="button" class="composer-btn stop" aria-label="Stop" hidden>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <use href="#icon-23"></use>
+          </svg>
+        </button>
+      </div>
+    </form>
+
+    <section class="home-view" hidden>
+      <section class="home-news" aria-label="News">
+        <div class="home-news-head">
+          <span class="home-news-title">News</span>
+        </div>
+        <div class="home-news-list" data-home-news-list></div>
+        <p class="home-news-note" data-home-news-note hidden></p>
+      </section>
+    </section>
+
+    <section class="settings-view" hidden>
+      <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <aside class="settings-sidebar">
+          <div class="settings-sidebar-title" id="settings-title">Settings</div>
+          <label class="settings-search">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+            </svg>
+            <input id="settings-search" type="text" placeholder="Search settings..." autocomplete="off" spellcheck="false" />
+          </label>
+          <nav class="settings-nav">
+          <button type="button" class="settings-nav-item active" data-settings-target="general">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6 1.7 1.7 0 0 0 10 3.04V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.99a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
+            <span>General</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="appearance">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+            </svg>
+            <span>Appearance</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="session">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7l-5 3v-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+              <path d="M7 9h10M7 13h7" />
+            </svg>
+            <span>Session</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="providers">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg>
+            <span>Model providers</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="notifications">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span>Notifications</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="memory">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg>
+            <span>Memory</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="worktrees">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-6 2.5-6 7.5"/></svg>
+            <span>Worktrees</span>
+          </button>
+          </nav>
+        </aside>
+        <div class="settings-main">
+          <div class="settings-main-head">
+            <h2 class="settings-pane-title" data-settings-pane-title>General</h2>
+            <button type="button" class="settings-close" data-settings-close aria-label="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="settings-body">
+            <div class="settings-pane" data-settings-pane="general">
+
+                  <div class="settings-card theme-current-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Current theme</span>
+                        <span class="setting-desc">Customize the app's color palette</span>
+                      </div>
+                    </div>
+                    <div class="setting-field theme-current-field">
+                      <div class="theme-current-thumb" id="current-theme-thumb" aria-hidden="true">
+                        <img class="theme-current-shot" id="current-theme-shot" alt="" hidden />
+                        <svg class="theme-current-mock" id="current-theme-mock" viewBox="0 0 120 74" focusable="false">
+                          <defs>
+                            <linearGradient id="tct-strip-fill" x1="0" y1="0" x2="1" y2="0">
+                              <stop offset="0" stop-color="#f85149" />
+                              <stop offset="0.25" stop-color="#e3b341" />
+                              <stop offset="0.5" stop-color="#3fb950" />
+                              <stop offset="0.75" stop-color="#58a6ff" />
+                              <stop offset="1" stop-color="#a371f7" />
+                            </linearGradient>
+                          </defs>
+                          <rect x="0.5" y="0.5" width="119" height="73" rx="7" style="fill: var(--tp-window); stroke: var(--tp-line-soft)" />
+                          <circle cx="10" cy="9" r="2.1" style="fill: var(--tp-glyph)" />
+                          <circle cx="16.5" cy="9" r="2.1" style="fill: var(--tp-glyph)" />
+                          <circle cx="23" cy="9" r="2.1" style="fill: var(--tp-glyph)" />
+                          <rect x="6" y="15" width="35" height="49" rx="4" style="fill: var(--tp-sidebar)" />
+                          <rect x="11" y="28" width="25" height="3" rx="1.5" style="fill: var(--tp-line)" />
+                          <rect x="11" y="40" width="18" height="3" rx="1.5" style="fill: var(--tp-line)" />
+                          <rect x="11" y="52" width="14" height="3" rx="1.5" style="fill: var(--tp-line)" />
+                          <rect x="47" y="6" width="21" height="6" rx="3" style="fill: var(--tp-glyph-strong)" />
+                          <rect x="46" y="20" width="66" height="2.6" rx="1.3" style="fill: var(--tp-line)" />
+                          <rect x="46" y="30" width="54" height="2.6" rx="1.3" style="fill: var(--tp-line)" />
+                          <rect x="46" y="40" width="62" height="2.6" rx="1.3" style="fill: var(--tp-line)" />
+                          <rect x="46" y="49" width="34" height="3" rx="1.5" style="fill: var(--tp-red)" />
+                          <rect x="46" y="58" width="40" height="3" rx="1.5" style="fill: var(--tp-green)" />
+                          <rect x="1" y="66" width="118" height="6" rx="3" fill="url(#tct-strip-fill)" />
+                        </svg>
+                      </div>
+                      <div class="theme-current-info">
+                        <span class="theme-current-name" id="current-theme-name">GitHub</span>
+                        <span class="theme-current-swatches" id="current-theme-swatches" aria-hidden="true"></span>
+                      </div>
+                      <button type="button" class="theme-current-change" id="current-theme-change">Change theme</button>
+                    </div>
+                  </div>
+
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Use pointer cursors</span>
+                        <span class="setting-desc">Change the cursor to a pointer when hovering over interactive elements</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="pref-pointer-cursors" checked />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Animations</span>
+                        <span class="setting-desc">Enable interface animations and transitions everywhere in the app</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="pref-animations" checked />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Reduce motion</span>
+                        <span class="setting-desc">Reduce animations or match your system</span>
+                      </div>
+                      <div class="setting-segmented">
+                        <button type="button" class="segmented-btn active" data-segmented="pref-reduce-motion" data-value="system">System</button>
+                        <button type="button" class="segmented-btn" data-segmented="pref-reduce-motion" data-value="on">On</button>
+                        <button type="button" class="segmented-btn" data-segmented="pref-reduce-motion" data-value="off">Off</button>
+                      </div>
+                    </div>
+                     <div class="setting-field">
+                       <div class="setting-field-info">
+                         <span class="setting-section">Sidebar position</span>
+                         <span class="setting-desc">Choose which side of the window the sidebar panel docks to</span>
+                       </div>
+                      <div class="sidebar-pos-select">
+                        <button type="button" class="lang-select-btn" id="sidebar-pos-toggle">
+                          <span id="sidebar-pos-label">Left</span>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <use href="#icon-20"></use>
+                          </svg>
+                        </button>
+                          <div class="lang-select-menu" id="sidebar-pos-menu"></div>
+                        </div>
+                      </div>
+                     <div class="setting-field">
+                       <div class="setting-field-info">
+                         <span class="setting-section">Hide sidebar</span>
+                         <span class="setting-desc">Start with the sidebar and panel collapsed to keep the chat area clear</span>
+                       </div>
+                       <label class="setting-check">
+                         <input type="checkbox" id="pref-hide-sidebar" />
+                         <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                       </label>
+                     </div>
+                     <div class="setting-field">
+                       <div class="setting-field-info">
+                         <span class="setting-section">Disable sidebar</span>
+                         <span class="setting-desc">Remove the sidebar entirely and lock its toggle off until re-enabled here</span>
+                       </div>
+                       <label class="setting-check">
+                         <input type="checkbox" id="pref-disable-sidebar" />
+                         <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                       </label>
+                     </div>
+                   </div>
+
+          
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="startup">Startup</span>
+                        <span class="setting-desc" data-i18n="launchStartup">Launch on startup</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="startup-launch" />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="enableShimmer">Shimmer Effect</span>
+                         <span class="setting-desc">Animated shimmer on theme cards, loading rows and the splash</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="shimmer-effect" checked />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="appearance" hidden>
+          
+                  <div class="settings-card theme-plain">
+                    <div class="setting-field theme-mode-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Mode</span>
+                        <span class="setting-desc">Choose System, Light, or Dark appearance</span>
+                      </div>
+                      <div class="theme-mode-select">
+                        <button type="button" class="lang-select-btn" id="theme-mode-toggle" aria-haspopup="true" aria-expanded="false">
+                          <span id="theme-mode-label">System</span>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <use href="#icon-20"></use>
+                          </svg>
+                        </button>
+                        <div class="lang-select-menu" id="theme-mode-menu"></div>
+                      </div>
+                    </div>
+                    <div class="setting-field theme-setting">
+                      <div class="theme-options-large">
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="system" />
+                          <div class="theme-preview theme-split" data-theme-preview="system">
+                            <div class="tp-half tp-light">
+                              <div class="tp-titlebar">
+                                <span class="tp-dots"><i></i><i></i><i></i></span>
+                                <span class="tp-chip"></span>
+                                <span class="tp-bar grow"></span>
+                              </div>
+                              <div class="tp-body">
+                                <div class="tp-canvas">
+                                  <span class="tp-bar w55"></span>
+                                  <span class="tp-bar w85"></span>
+                                  <span class="tp-bar w40 red"></span>
+                                  <span class="tp-bar w60 green"></span>
+                                  <span class="tp-bar w75"></span>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="tp-half tp-dark">
+                              <div class="tp-titlebar">
+                                <span class="tp-dots"><i></i><i></i><i></i></span>
+                                <span class="tp-chip"></span>
+                                <span class="tp-bar grow"></span>
+                              </div>
+                              <div class="tp-body">
+                                <div class="tp-canvas">
+                                  <span class="tp-bar w55"></span>
+                                  <span class="tp-bar w85"></span>
+                                  <span class="tp-bar w40 red"></span>
+                                  <span class="tp-bar w60 green"></span>
+                                  <span class="tp-bar w75"></span>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">System</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="light" />
+                          <div class="theme-preview" data-theme-preview="light">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Light</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="dark" />
+                          <div class="theme-preview" data-theme-preview="dark">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Dark</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="fox" />
+                          <div class="theme-preview" data-theme-preview="fox">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Fox</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="monochrome" />
+                          <div class="theme-preview" data-theme-preview="monochrome">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Monochrome</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="noctis" />
+                          <div class="theme-preview" data-theme-preview="noctis">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Noctis Azureus</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="notionish" />
+                          <div class="theme-preview" data-theme-preview="notionish">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Notionish</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="polychrome" />
+                          <div class="theme-preview" data-theme-preview="polychrome">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Polychrome</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="selene" />
+                          <div class="theme-preview" data-theme-preview="selene">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Selene Selenized</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="tokyo-night" />
+                          <div class="theme-preview" data-theme-preview="tokyo-night">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Tokyo Night</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="opencode" />
+                          <div class="theme-preview" data-theme-preview="opencode">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">OpenCode</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="opencode-light" />
+                          <div class="theme-preview" data-theme-preview="opencode-light">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">OpenCode Light</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="vercel-dark" />
+                          <div class="theme-preview" data-theme-preview="vercel-dark">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Vercel Dark</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="vercel-light" />
+                          <div class="theme-preview" data-theme-preview="vercel-light">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Vercel Light</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="session" hidden>
+              
+                <div class="settings-card">
+                  <div class="setting-field">
+                    <div class="setting-field-info">
+                      <label class="setting-section" for="session-settings-name">Session name</label>
+                      <span class="setting-desc">Rename this conversation in your session list</span>
+                    </div>
+                    <input type="text" class="setting-text-input" id="session-settings-name" maxlength="60" placeholder="Auto-generated from the first message" />
+                  </div>
+                  <div class="setting-field">
+                    <div class="setting-field-info">
+                      <span class="setting-section">Session ID</span>
+                    </div>
+                    <span class="setting-status" id="session-settings-id">No active session</span>
+                  </div>
+                  <div class="setting-field">
+                    <div class="setting-field-info">
+                      <span class="setting-section">Messages</span>
+                    </div>
+                    <span class="setting-status" id="session-settings-message-count">0</span>
+                  </div>
+                  <div class="setting-field">
+                    <div class="setting-field-info">
+                      <span class="setting-section">Save name</span>
+                      <span class="setting-desc">Apply the name to this session only</span>
+                    </div>
+                    <button type="button" class="font-select-btn" id="session-settings-save">Save</button>
+                  </div>
+                </div>
+            </div>
+          <div class="settings-pane" data-settings-pane="providers" hidden>
+            
+              <div class="settings-card">
+                <div class="setting-field">
+                  <div class="setting-field-info">
+                    <span class="setting-section">Integrations</span>
+                    <span class="setting-desc">Connect OpenAI, Claude, Grok, Z.ai, or Ollama</span>
+                  </div>
+                  <button type="button" class="font-select-btn" data-settings-connect>Open integrations</button>
+                </div>
+              </div>
+          </div>
+            <div class="settings-pane" data-settings-pane="notifications" hidden>
+          
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="notificationsEnable">Enable Notifications</span>
+                        <span class="setting-desc" data-i18n="notificationsEnableDesc">Show desktop notifications for events</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="notifications-enable" checked />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="notificationsSound">Notification Sound</span>
+                        <span class="setting-desc" data-i18n="notificationsSoundDesc">Play a sound when notifications appear</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="notifications-sound" />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="notificationsDuration">Duration</span>
+                        <span class="setting-desc" data-i18n="notificationsDurationDesc">How long notifications stay visible</span>
+                      </div>
+                      <div class="setting-segmented">
+                        <button type="button" class="segmented-btn" data-segmented="notifications-duration" data-value="3">3s</button>
+                        <button type="button" class="segmented-btn active" data-segmented="notifications-duration" data-value="6">6s</button>
+                        <button type="button" class="segmented-btn" data-segmented="notifications-duration" data-value="10">10s</button>
+                      </div>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="notificationsPosition">Position</span>
+                        <span class="setting-desc" data-i18n="notificationsPositionDesc">Where notifications appear on screen</span>
+                      </div>
+                      <div class="setting-segmented">
+                        <button type="button" class="segmented-btn active" data-segmented="notifications-position" data-value="top-right">Top Right</button>
+                        <button type="button" class="segmented-btn" data-segmented="notifications-position" data-value="bottom-right">Bottom Right</button>
+                      </div>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="notificationsTest">Test Notification</span>
+                        <span class="setting-desc" data-i18n="notificationsTestDesc">Send a sample notification</span>
+                      </div>
+                      <button type="button" class="font-select-btn" id="notifications-test-btn">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        <span data-i18n="sendTest">Send Test</span>
+                      </button>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="memory" hidden>
+          
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="memoryEnable">Enable Memory</span>
+                        <span class="setting-desc" data-i18n="memoryEnableDesc">Allow the AI to remember context across conversations</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="memory-enable" />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="memoryStatus">Memory Status</span>
+                        <span class="setting-desc" data-i18n="memoryStatusDesc">Current memory usage</span>
+                      </div>
+                      <span class="setting-status" id="memory-status">0 entries · 0 tokens</span>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="memoryContextWindow">Context Window</span>
+                        <span class="setting-desc" data-i18n="memoryContextWindowDesc">Maximum tokens to keep in memory</span>
+                      </div>
+                      <div class="setting-number">
+                        <input type="number" id="memory-context-window" class="setting-number-input" value="200000" min="1000" max="1000000" step="1000" />
+                        <span class="setting-number-unit">tokens</span>
+                      </div>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="memoryRetention">Memory Retention</span>
+                        <span class="setting-desc" data-i18n="memoryRetentionDesc">How long to keep memories</span>
+                      </div>
+                      <div class="setting-segmented">
+                        <button type="button" class="segmented-btn active" data-segmented="memory-retention" data-value="session">Session</button>
+                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="7days">7 Days</button>
+                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="30days">30 Days</button>
+                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="forever">Forever</button>
+                      </div>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="memoryClear">Clear Memory</span>
+                        <span class="setting-desc" data-i18n="memoryClearDesc">Remove all stored memories</span>
+                      </div>
+                      <button type="button" class="setting-danger-btn" id="memory-clear-btn">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                        </svg>
+                        <span data-i18n="clearMemory">Clear All Memory</span>
+                      </button>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="worktrees" hidden>
+          
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="worktreesEnable">Enable Worktrees</span>
+                        <span class="setting-desc" data-i18n="worktreesEnableDesc">Enable Git worktree support</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="worktrees-enable" />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="worktreesAutoclean">Auto Clean</span>
+                        <span class="setting-desc" data-i18n="worktreesAutocleanDesc">Automatically remove stale worktrees</span>
+                      </div>
+                      <label class="setting-check">
+                        <input type="checkbox" id="worktrees-autoclean" />
+                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="worktreesLocation">Location</span>
+                        <span class="setting-desc" data-i18n="worktreesLocationDesc">Directory where worktrees are created</span>
+                      </div>
+                      <input type="text" class="setting-text-input" id="worktrees-location" placeholder=".worktrees" />
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section" data-i18n="worktreesBranchPrefix">Branch Prefix</span>
+                        <span class="setting-desc" data-i18n="worktreesBranchPrefixDesc">Prefix for worktree branch names</span>
+                      </div>
+                      <input type="text" class="setting-text-input" id="worktrees-branch-prefix" placeholder="wt/" />
+                    </div>
+                  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+    <section class="feedback-view" hidden>
+      <div class="feedback-panel">
+        <div class="feedback-header">
+          <h2 data-i18n="provideFeedback">Provide Feedback</h2>
+        </div>
+
+        <form class="feedback-form" id="feedback-form">
+          <div class="feedback-group">
+            <label class="feedback-group-label" data-i18n="feedbackType">Feedback Type</label>
+            <div class="feedback-radio-list">
+              <label class="feedback-radio-item">
+                <input type="radio" name="feedback-type" value="bug" checked />
+                <span class="feedback-radio-custom"></span>
+                <span data-i18n="bugReport">Bug Report</span>
+              </label>
+              <label class="feedback-radio-item">
+                <input type="radio" name="feedback-type" value="feature" />
+                <span class="feedback-radio-custom"></span>
+                <span data-i18n="featureRequest">Feature Request</span>
+              </label>
+              <label class="feedback-radio-item">
+                <input type="radio" name="feedback-type" value="auth-billing" />
+                <span class="feedback-radio-custom"></span>
+                <span data-i18n="authBilling">Auth and Billing</span>
+              </label>
+              <label class="feedback-radio-item">
+                <input type="radio" name="feedback-type" value="general" />
+                <span class="feedback-radio-custom"></span>
+                <span data-i18n="generalFeedback">General Feedback</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="feedback-group">
+            <label class="feedback-group-label" data-i18n="description">Description</label>
+            <p class="feedback-guide-text" data-i18n="feedbackGuide">
+              Please describe the issue in detail. The more actionable your feedback, the quicker our team can address your request. Some helpful information includes:
+            </p>
+            <ul class="feedback-guide-list">
+              <li data-i18n="guideSteps">Steps to reproduce the issue</li>
+              <li data-i18n="guideExpected">Expected behavior</li>
+              <li data-i18n="guideActual">Actual behavior</li>
+              <li data-i18n="guideErrors">Any error messages</li>
+              <li data-i18n="guideRelevant">Any relevant information</li>
+            </ul>
+            <textarea id="feedback-message" class="feedback-textarea" rows="5" required data-i18n-placeholder="feedbackDescPlaceholder" placeholder="Describe the bug you encountered..."></textarea>
+          </div>
+
+          <div class="feedback-group" id="feedback-steps-group">
+            <label class="feedback-group-label" data-i18n="stepsToReproduce">Steps to Reproduce</label>
+            <textarea id="feedback-steps" class="feedback-textarea" rows="3" data-i18n-placeholder="stepsPlaceholder" placeholder="Please list the steps to reproduce the issue"></textarea>
+          </div>
+
+          <div class="feedback-group">
+            <button type="button" class="feedback-attach-btn" id="feedback-attach-trigger">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+              <span data-i18n="attachScreenshot">Attach a screenshot (optional)</span>
+            </button>
+            <input type="file" id="feedback-file-input" accept="image/*" hidden />
+            <div id="feedback-file-preview" class="feedback-file-preview" hidden>
+              <span class="preview-filename"></span>
+              <button type="button" class="preview-remove-btn" id="feedback-file-remove">&times;</button>
+            </div>
+          </div>
+
+          <div class="feedback-actions">
+            <button type="button" class="feedback-github-btn" data-action="open-github-issues">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <use href="#icon-32"></use>
+              </svg>
+              <span data-i18n="githubIssues">GitHub Issues</span>
+            </button>
+            <div class="feedback-actions-right">
+              <button type="button" class="feedback-cancel-btn" data-action="close-feedback" data-i18n="cancel">Cancel</button>
+              <button type="submit" class="feedback-submit-btn primary" data-i18n="sendFeedback">Send Feedback</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <div class="release-notes-overlay" hidden>
+      <div class="release-notes-dialog" role="dialog" aria-modal="true" aria-label="What's New">
+        <button type="button" class="release-notes-close" data-rn-close aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="release-title">What's New</div>
+      <div class="release-loading" hidden>
+        <svg class="md3-loader" viewBox="0 0 50 50">
+          <use href="#icon-15"></use>
+        </svg>
+      </div>
+        <div class="release-body">
+          <div class="release-layout">
+            <div class="release-content">
+            <div class="release-section active" data-date="v0.1.1.0">
+              <div class="release-version-header">
+                <h3>v0.1.1.0</h3>
+                <span class="release-version-date">November 7, 2026</span>
+              </div>
+              <h4>Settings dialog</h4>
+              <p class="release-para"><strong>New:</strong> Settings now opens as a focused dialog from the account row in the sidebar footer, replacing the full-page view. General leads with the Current theme card: a live miniature of your window, the theme name, palette swatches and a shortcut straight to the theme picker.</p>
+              <h4>Settings search</h4>
+              <p class="release-para"><strong>New:</strong> Search now filters the real setting rows and theme cards on every page, not just the page names. Matches are highlighted in the page list, and clearing the query returns you to the page you were on.</p>
+              <h4>Sidebar controls</h4>
+              <p class="release-para"><strong>Added:</strong> Two new settings: Hide sidebar starts the app with the sidebar and panel collapsed for a full-width chat area, and Disable sidebar removes the sidebar entirely and locks its toggle until you re-enable it. The splash screen honors both.</p>
+              <h4>Taskbar badge</h4>
+              <p class="release-para"><strong>Added:</strong> When a reply finishes while the window is unfocused or minimized, the app icon gets a small "1" badge in the taskbar. It clears the moment you come back to the window.</p>
+              <h4>Dialogs</h4>
+              <p class="release-para"><strong>New:</strong> About CilamAI and these release notes moved from full pages into dialogs you can open anytime from the More menu, and this view was rewritten into a What's New format with plain-language highlights.</p>
+              <h4>Themes</h4>
+              <p class="release-para"><strong>Added:</strong> Two new themes: OpenCode (a neutral grey scale with a warm orange primary and purple accents) and OpenCode Light with a warm paper palette. The Current theme miniature is a real capture of your window, so it always matches the active theme.</p>
+              <h4>Bug fixes</h4>
+              <p class="release-para"><strong>Fixed:</strong> Markdown rendering for fenced code blocks, blockquotes and list numbers; code blocks no longer stretch to viewport width; message images are capped to the bubble and failed sources no longer paint white blocks in dark themes.</p>
+            </div>
+            <div class="release-section" data-date="v0.1.0.1">
+              <div class="release-version-header">
+                <h3>v0.1.0.1</h3>
+                <span class="release-version-date">August 14, 2026</span>
+              </div>
+              <h4>Accounts</h4>
+              <p class="release-para"><strong>Added:</strong> User account system with sign in, avatar and sign out. Sending chat messages now requires a signed-in account, and the credits menu tracks your spent amount.</p>
+              <h4>Startup</h4>
+              <p class="release-para"><strong>Fixed:</strong> The app opens a fresh new chat on launch, Settings moved to the bottom of the sidebar, and startup fades out smoothly.</p>
+            </div>
+            <div class="release-section" data-date="v0.1.0">
+              <div class="release-version-header">
+                <h3>v0.1.0</h3>
+                <span class="release-version-date">August 12, 2026</span>
+              </div>
+              <h4>First release</h4>
+              <p class="release-para"><strong>New:</strong> The initial release of the CilamAI desktop chat application: real-time streaming responses, file uploads, screenshot capture, session search and history, model selection, credit and usage tracking with a 24-hour reset, notifications, and a help menu with keyboard shortcuts.</p>
+              <h4>Customization</h4>
+              <p class="release-para"><strong>Added:</strong> Multiple themes (Dark, Light, System, Blue, Red, Yellow, Green and Black), adjustable chat text size, customizable hotkeys with reset to defaults, and a launch-on-startup option.</p>
+              <h4>Multi-language</h4>
+              <p class="release-para"><strong>Added:</strong> English, Korean, Turkish and Russian out of the box, with GitHub integration for repository access.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn primary" data-rn-close data-i18n="close">Close</button>
+      </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="right-panel" hidden aria-label="Terminal panel">
+    <div class="panel-resize-handle" data-panel-resize role="separator" aria-orientation="vertical" tabindex="0"></div>
+    <div class="panel-tab-bar">
+      <div class="panel-tabs" data-panel-tabs></div>
+      <div class="panel-add-wrap">
+        <button type="button" class="panel-tab-add" data-panel-add aria-haspopup="menu" aria-expanded="false"
+          aria-label="Add to panel" title="Add to panel">+</button>
+        <div class="panel-add-menu" data-panel-add-menu role="menu" hidden>
+          <button type="button" class="panel-add-item" role="menuitem" data-panel-new-tab>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span>PowerShell</span>
+          </button>
+          <button type="button" class="panel-add-item" role="menuitem" data-panel-add-browser>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <path d="M12 3c4 4.5 4 13.5 0 18s-4-13.5 0-18"></path>
+            </svg>
+            <span>Browser</span>
+          </button>
+        </div>
+      </div>
+      <div class="panel-tab-spacer"></div>
+    </div>
+    <div class="panel-body" data-panel-terminal></div>
+    <input type="text" class="term-capture" data-panel-input autocomplete="off" autocapitalize="off" autocorrect="off"
+      spellcheck="false" aria-label="Terminal input" disabled />
+  </aside>
+
+  <script type="module" src="./src/main.js"></script>
+
+  <div class="cmd-palette" hidden>
+    <div class="cmd-palette-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="cmd-palette-search">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <use href="#icon-10"></use>
+        </svg>
+        <span class="cmd-palette-crumb" hidden></span>
+        <input type="text" class="cmd-palette-input" placeholder="Type a command..." aria-label="Command"
+          spellcheck="false" />
+        <kbd class="cmd-palette-kbd">Esc</kbd>
+      </div>
+      <div class="cmd-palette-list" role="listbox" aria-label="Commands"></div>
+      <div class="cmd-palette-empty" hidden>No matching commands</div>
+    </div>
+  </div>
+
+  <div class="confirm-overlay" hidden>
+    <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <div class="confirm-header">
+        <div class="confirm-copy">
+          <h2 class="confirm-title" id="confirm-title">Confirm action</h2>
+          <p class="confirm-text" id="confirm-text" data-i18n="deleteConfirm">This session and all its messages will be gone for good.<br>There's no way back from this.</p>
+          <input class="confirm-input" data-confirm-input type="text" maxlength="60" aria-label="Session name" hidden />
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn" data-confirm-cancel data-i18n="cancel">Cancel</button>
+        <button type="button" class="confirm-btn primary" data-confirm-ok data-i18n="delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="about-overlay" hidden>
+    <div class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-dialog-title">
+      <button type="button" class="about-dialog-close" data-about-close aria-label="Close">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="about-dialog-hero">
+        <img src="./favicon.ico" alt="" class="about-dialog-icon" />
+        <div class="about-dialog-id">
+          <h2 class="about-dialog-title" id="about-dialog-title">CilamAI</h2>
+          <span class="about-dialog-version"><span data-i18n="version">Version</span> 0.1.1.0</span>
+        </div>
+      </div>
+      <div class="about-dialog-section">
+        <h3 data-i18n="keyboardShortcuts">Keyboard Shortcuts</h3>
+        <div class="help-shortcuts">
+          <div class="help-shortcut"><span data-i18n="newChat">New Chat</span><kbd>Ctrl + N</kbd></div>
+          <div class="help-shortcut"><span data-i18n="settings">Settings</span><kbd>Ctrl + ,</kbd></div>
+          <div class="help-shortcut"><span data-i18n="search">Search</span><kbd>Ctrl + F</kbd></div>
+          <div class="help-shortcut"><span data-i18n="send">Send</span><kbd>Enter</kbd></div>
+          <div class="help-shortcut"><span data-i18n="stop">Stop</span><kbd>Esc</kbd></div>
+        </div>
+      </div>
+      <div class="about-dialog-section">
+        <h3 data-i18n="links">Links</h3>
+        <div class="help-links">
+          <a class="help-link" href="https://github.com/CilamAI/CilamAI" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <use href="#icon-32"></use>
+            </svg>
+            <span data-i18n="github">GitHub</span>
+          </a>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn primary" data-about-close data-i18n="close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ctx-menu" hidden>
+    <button type="button" class="ctx-menu-item" data-ctx-rename>Rename session</button>
+    <button type="button" class="ctx-menu-item" data-ctx-delete data-i18n="deleteSession" aria-label="Delete session">Delete session</button>
+  </div>
+
+  <div class="auth-dialog-overlay" hidden>
+    <div class="auth-dialog">
+      <div class="auth-dialog-logo">
+        <img src="./favicon.ico" alt="CilamAI" width="48" height="48" />
+      </div>
+      <h3 class="auth-dialog-title" data-i18n="signInToCilamAI">Sign in to CilamAI</h3>
+
+      <div class="auth-providers">
+        <button type="button" class="auth-provider-btn auth-provider-primary" data-provider="google">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+            <path fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+          </svg>
+          <span data-i18n="continueWithGoogle">Continue with Google</span>
+        </button>
+        <button type="button" class="auth-provider-btn auth-provider-outline" data-auth-close>
+          <span data-i18n="signInAnotherWay">Sign in another way</span>
+        </button>
+      </div>
+
+      <p class="auth-dialog-signup">
+        <span data-i18n="noAccount">Don't have an account?</span>
+        <a href="#" data-action="signup" data-i18n="signUp">Sign up</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="connect-overlay" hidden>
+    <div class="connect-dialog" role="dialog" aria-modal="true" aria-labelledby="connect-title">
+      <div class="connect-view" data-connect-list>
+        <div class="connect-head">
+          <div class="connect-head-text">
+            <h3 class="connect-title" id="connect-title">Integrations</h3>
+          </div>
+          <button type="button" class="connect-close" data-connect-cancel aria-label="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="connect-search">
+          <svg class="connect-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+          </svg>
+          <input id="connect-search" type="text" placeholder="Search" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="connect-body">
+          <div class="connect-group" data-connect-connected-group>
+            <div class="connect-group-title">Connected</div>
+            <div class="connect-rows" data-connect-connected></div>
+          </div>
+          <div class="connect-group" data-connect-popular-group>
+            <div class="connect-group-title">Popular</div>
+            <div class="connect-rows" data-connect-popular></div>
+          </div>
+          <p class="connect-empty" data-connect-empty hidden>No integrations found.</p>
+        </div>
+      </div>
+
+      <div class="connect-view" data-connect-form hidden>
+        <div class="connect-form-head">
+          <button type="button" class="connect-back" data-connect-back aria-label="Back">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </button>
+          <span class="connect-form-icon">
+            <img data-connect-form-icon src="./assets/providers/openai.svg" alt="" />
+          </span>
+          <h3 class="connect-title" data-connect-form-title>Connect</h3>
+          <button type="button" class="connect-close" data-connect-cancel aria-label="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <p class="connect-desc" data-connect-form-desc></p>
+        <div class="connect-field">
+          <label class="connect-label" for="connect-key" data-connect-key-label>API key</label>
+          <input id="connect-key" class="connect-input" type="password" autocomplete="off" spellcheck="false"
+            placeholder="API key" />
+        </div>
+        <div class="connect-actions">
+          <button type="button" class="connect-btn primary" data-connect-save disabled>Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notification" role="alert" hidden>
+    <svg class="notification-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
+    <span class="notification-msg"></span>
+  </div>
+
+  <div class="fatal-error-screen" role="alert" hidden>
+    <div class="fatal-error-card">
+      <h1 class="fatal-error-title" data-i18n="fatalErrorTitle">Something went wrong</h1>
+      <p class="fatal-error-desc" data-i18n="fatalErrorDesc">An unexpected error occurred. Please reload the app to continue.</p>
+      <pre class="fatal-error-detail" hidden></pre>
+      <div class="fatal-error-actions">
+        <button type="button" class="fatal-error-copy" hidden>Copy logs</button>
+        <button type="button" class="fatal-error-reload" onclick="window.electron?.restartApp ? window.electron.restartApp() : window.location.reload()">Restart</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    let appInitialized = false
+    const startupLogs = []
+    const diagnosticLogs = []
+    const errorDetail = document.querySelector('.fatal-error-detail')
+    const fatalScreen = document.querySelector('.fatal-error-screen')
+    const copyLogsButton = document.querySelector('.fatal-error-copy')
+    const redactDiagnosticValue = (value, key = '') => {
+      if (/api.?key|authorization|access.?token|refresh.?token|password|secret|credential/i.test(key)) return '[REDACTED]'
+      if (typeof value === 'string') {
+        if (/^(?:https?:\/\/)/i.test(value)) {
+          try {
+            const url = new URL(value)
+            for (const name of [...url.searchParams.keys()]) {
+              if (/key|token|secret|auth|password/i.test(name)) url.searchParams.set(name, '[REDACTED]')
+            }
+            return url.toString()
+          } catch {}
+        }
+        if (/^(?:data:image\/|[A-Za-z0-9+/]{512,}={0,2}$)/.test(value)) {
+          return `[image/binary data omitted; ${value.length} characters]`
+        }
+        return value
+          .replace(/\b(Bearer\s+)[^\s"'`,]+/gi, '$1[REDACTED]')
+          .replace(/\b(sk-[A-Za-z0-9_-]{8,})\b/g, '[REDACTED_API_KEY]')
+      }
+      if (/^images?$/i.test(key) && (Array.isArray(value) || typeof value === 'string')) {
+        const images = Array.isArray(value) ? value : [value]
+        return images.map((image) => `[image data omitted; ${typeof image === 'string' ? image.length : 0} characters]`)
+      }
+      if (Array.isArray(value)) return value.map((item) => redactDiagnosticValue(item))
+      if (value && typeof value === 'object') {
+        if (typeof value.url === 'string' && value.url.startsWith('data:image/')) {
+          return { ...value, url: `[image data omitted; ${value.url.length} characters]` }
+        }
+        return Object.fromEntries(Object.entries(value).map(([name, item]) => [
+          name,
+          redactDiagnosticValue(item, name)
+        ]))
+      }
+      return value
+    }
+    const renderDiagnosticLogs = () => {
+      const entries = [
+        ...startupLogs.map((message) => ({ time: new Date().toISOString(), type: 'Renderer error', details: redactDiagnosticValue(message) })),
+        ...diagnosticLogs
+      ]
+      if (errorDetail) {
+        errorDetail.textContent = entries.length
+          ? entries.map((entry) => `[${entry.time}] ${entry.type}\n${JSON.stringify(entry.details, null, 2)}`).join('\n\n')
+          : 'No error details were captured.'
+        errorDetail.hidden = false
+      }
+      if (copyLogsButton) copyLogsButton.hidden = false
+    }
+    window.__cilamaiLog = (type, details) => {
+      diagnosticLogs.push({
+        time: new Date().toISOString(),
+        type: String(type || 'Diagnostic'),
+        details: redactDiagnosticValue(details)
+      })
+      if (diagnosticLogs.length > 40) diagnosticLogs.shift()
+      while (diagnosticLogs.length > 1 && JSON.stringify(diagnosticLogs).length > 1000000) diagnosticLogs.shift()
+      if (!fatalScreen?.hidden) renderDiagnosticLogs()
+    }
+    const formatError = (error) => {
+      if (error instanceof Error) return error.stack || `${error.name}: ${error.message}`
+      if (typeof error === 'string') return error
+      try { return JSON.stringify(error) } catch { return String(error) }
+    }
+    const showErrorScreen = (message) => {
+      if (message && !startupLogs.includes(message)) startupLogs.push(message)
+      if (startupLogs.length > 10) startupLogs.shift()
+      renderDiagnosticLogs()
+      if (fatalScreen) fatalScreen.hidden = false
+    }
+    window.__cilamaiReportError = (error) => showErrorScreen(formatError(error))
+    window.addEventListener('cilamai:app-ready', () => { appInitialized = true }, { once: true })
+    window.addEventListener('error', (event) => {
+      showErrorScreen(event.error ? formatError(event.error) : `${event.message || 'Script error'}${event.filename ? `\n${event.filename}:${event.lineno}:${event.colno}` : ''}`)
+    })
+    window.addEventListener('unhandledrejection', (event) => showErrorScreen(formatError(event.reason)))
+    copyLogsButton?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(errorDetail?.textContent || 'No error details were captured.')
+        copyLogsButton.textContent = 'Copied'
+        setTimeout(() => { copyLogsButton.textContent = 'Copy logs' }, 1500)
+      } catch {
+        copyLogsButton.textContent = 'Copy failed'
+      }
+    })
+    setTimeout(() => {
+      if (appInitialized) return
+      document.querySelector('.startup-loading').hidden = true
+      showErrorScreen('Startup timed out after 15 seconds before the renderer finished initializing.')
+    }, 15000)
+  </script>
+</body>
+
+</html>

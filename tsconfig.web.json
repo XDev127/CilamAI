@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "paths": {
+      "@/*": ["./src/renderer/src/*"]
+    },
+    "outDir": "./dist-web"
+  },
+  "include": [
+    "src/renderer/src/**/*",
+    "src/renderer/index.html"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "release_build",
+    "Output"
+  ]
+}

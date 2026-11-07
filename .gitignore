@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-node/
+dist-web/
+out/
+out_bak/
+out_test/
+release_build/
+build/
+
+# Environment / secrets
+.env
+.env.*
+*.pfx
+
+# Logs & stats
+*.log
+npm-debug.log*
+STATS.md
+
+# Caches & temp
+.cache/
+temp/
+.eslintcache
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

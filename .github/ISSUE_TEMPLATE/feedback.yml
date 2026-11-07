@@ -1,0 +1,72 @@
+name: 💬 Feedback & Logs
+description: Share general feedback, suggestions, or submit diagnostic logs to help improve CilamAI
+title: "[Feedback]: "
+labels: ["feedback", "user-experience"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Provide Feedback & Diagnostic Logs
+        Thank you for helping us improve CilamAI! Share your experience, ideas, or diagnostic logs below.
+  - type: dropdown
+    id: feedback-type
+    attributes:
+      label: Feedback Type
+      description: Select what kind of feedback you are submitting
+      options:
+        - Bug Report
+        - Feature Request
+        - Auth and Billing
+        - General Feedback
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: CilamAI Version
+      description: What version of CilamAI are you using? (e.g. v0.1.0.1)
+      placeholder: "v0.1.0.1"
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        Please describe your feedback or issue in detail. Some helpful information includes:
+        - Steps to reproduce the issue
+        - Expected behavior
+        - Actual behavior
+        - Any error messages or relevant information
+      placeholder: Share your thoughts, suggestions, or experience...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce (if applicable)
+      description: If you encountered an issue, list the steps to reproduce it.
+      placeholder: |
+        1. Open '...'
+        2. Click on '...'
+        3. See behavior
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Application / Console Logs
+      description: Paste any console logs, installer logs, or error stack traces here.
+      render: shell
+      placeholder: |
+        Paste log output here...
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Media (Optional)
+      description: Drag & drop screenshots or images here to help explain your feedback.
+      placeholder: Drag and drop images here...
+    validations:
+      required: false

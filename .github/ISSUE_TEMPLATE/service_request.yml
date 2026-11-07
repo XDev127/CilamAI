@@ -1,0 +1,50 @@
+name: 🚀 ITSM Go / Service Request
+description: Submit an ITSM service request, integration task, or operational support ticket
+title: "[ITSM/Go]: "
+labels: ["itsm", "service-request", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to submit an ITSM service request, infrastructure change, integration task, or operational query for CilamAI.
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request Type
+      description: Select the nature of this ITSM request
+      options:
+        - API & Model Connector Integration (Go/REST)
+        - Tool / MCP Server Integration
+        - Account & Credits Limit Adjustment
+        - Infrastructure / CI/CD Deployment
+        - General IT Service Request
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority / Urgency
+      description: Select the urgency level for this request
+      options:
+        - Low (Normal operational request)
+        - Medium (Impacts non-critical workflow)
+        - High (Blocks current tasks)
+        - Critical (Immediate attention required)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Service Request Details
+      description: Detailed description of the requested service, change, or task.
+      placeholder: Provide full specifications, endpoints, or requirements...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What conditions must be met for this ITSM request to be considered complete?
+      placeholder: 1. Service deployed and responding\n2. Integration verified
+    validations:
+      required: false
