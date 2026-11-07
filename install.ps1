@@ -6,17 +6,21 @@ Write-Host "Starting CilamAI Desktop Installation..." -ForegroundColor Cyan
 
 if ($Version -eq "latest") {
     Write-Host "Checking for the latest version..."
-    $tagsUrl = "https://api.github.com/repos/XDev127/CilamAI/tags"
-    $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/v0.1.0.1/CilamAI-Setup.exe"
+    $releasesUrl = "https://api.github.com/repos/XDev127/CilamAI/releases/latest"
     try {
-        $tags = Invoke-RestMethod -Uri $tagsUrl -Method Get -Headers @{ "User-Agent" = "CilamAI" } -ErrorAction Stop
-        if ($tags.Count -gt 0) {
-            $latestTag = $tags[0].name
-            $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/$latestTag/CilamAI-Setup.exe"
-            Write-Host "Found version: $latestTag"
+        $release = Invoke-RestMethod -Uri $releasesUrl -Method Get -Headers @{ "User-Agent" = "CilamAI" } -ErrorAction Stop
+        $asset = $release.assets | Where-Object { $_.name -match "Setup\.exe$" } | Select-Object -First 1
+        if ($asset) {
+            $downloadUrl = $asset.browser_download_url
+            Write-Host "Found version: $($release.tag_name)"
+        }
+        else {
+            throw "No Setup.exe asset found in the latest release."
         }
     }
     catch {
+        Write-Host "Could not resolve the latest release download URL: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
     }
 }
 else {
@@ -30,7 +34,12 @@ $installerPath = Join-Path -Path $env:TEMP -ChildPath "CilamAI-Setup-$randomStr.
 Write-Host "Downloading installer from GitHub..."
 
 Try {
+    # Use .NET's modern HTTP defaults (TLS 1.2+); older PowerShell defaults can
+    # get the connection closed by GitHub.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
     $request = [System.Net.WebRequest]::Create($downloadUrl)
+    $request.UserAgent = "CilamAI"
     $response = $request.GetResponse()
     $totalSize = $response.ContentLength
 
