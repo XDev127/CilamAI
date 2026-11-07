@@ -2,7 +2,7 @@
   "name": "cilamai",
   "productName": "CilamAI",
   "description": "Hi i'm CilamAI star=target",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "type": "module",
   "main": "out/main/index.js",
   "bin": {
@@ -35,7 +35,7 @@
   "build": {
     "appId": "com.cilamai.desktop",
     "productName": "CilamAI",
-    "buildVersion": "0.1.0-1",
+    "buildVersion": "0.1.1",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "win": {
       "target": [

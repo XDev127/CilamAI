@@ -16,7 +16,7 @@
   </a>
 </p>
 
-# Welcome to CilamAI v0.1.0.1
+# Welcome to CilamAI v0.1.1
 
 
 </div>
@@ -39,7 +39,7 @@
 
 ### Windows Installer
 * **[Download CilamAI-Setup.exe](https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe)** - Standard setup wizard with desktop and Start Menu shortcuts.
-* **[Download CilamAI-Portable.exe](https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-0.1.0.1-Portable.exe)** - Standalone portable executable (no installation required).
+* **[Download CilamAI-Portable.exe](https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Portable.exe)** - Standalone portable executable (no installation required).
 
 ### Quick Install (PowerShell)
 ```powershell

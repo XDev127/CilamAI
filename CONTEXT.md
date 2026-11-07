@@ -131,6 +131,6 @@ the **main process** and are strictly read-only, sandboxed to one chosen project
 
 - **Development**: `npm run dev`
 - **Frontend/Backend Build**: `npm run build`
-- **Windows Portable**: `npm run dist:portable` (generates `CilamAI-0.1.0.1-Portable.exe`)
-- **Windows Installer**: `npm run dist:nsis` (generates `CilamAI-0.1.0.1-Setup.exe`)
+- **Windows Portable**: `npm run dist:portable` (generates `CilamAIPortable.exe`)
+- **Windows Installer**: `npm run dist:nsis` (generates `CilamAISetup.exe`)
 - **Directory Build**: `npm run dist:dir`
