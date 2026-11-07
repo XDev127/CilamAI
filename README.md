@@ -2,11 +2,11 @@
 
 <img src="https://file.garden/aPSLaf7myCkWreuK/Untitled_design__9_-removebg-preview.png" width="170" alt="CilamAI Logo" />
 <p align="center">
-  <a href="https://github.com/CilamAI/CilamAI/releases/latest">
-    <img alt="Release" src="https://img.shields.io/github/v/release/CilamAI/CilamAI?style=flat-square" />
+  <a href="https://github.com/XDev127/CilamAI/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/XDev127/CilamAI?style=flat-square" />
   </a>
-  <a href="https://github.com/CilamAI/CilamAI/actions/workflows/ci.yml">
-    <img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/CilamAI/CilamAI/ci.yml?branch=main&label=build&style=flat-square" />
+  <a href="https://github.com/XDev127/CilamAI/actions/workflows/ci.yml">
+    <img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/XDev127/CilamAI/ci.yml?branch=main&label=build&style=flat-square" />
   </a>
   <a href="#supported">
     <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square" />
@@ -38,12 +38,12 @@
 ## Installation
 
 ### Windows Installer
-* **[Download CilamAI-Setup.exe](https://github.com/CilamAI/CilamAI/releases/latest/download/CilamAI-Setup.exe)** - Standard setup wizard with desktop and Start Menu shortcuts.
-* **[Download CilamAI-Portable.exe](https://github.com/CilamAI/CilamAI/releases/latest/download/CilamAI-0.1.0.1-Portable.exe)** - Standalone portable executable (no installation required).
+* **[Download CilamAI-Setup.exe](https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe)** - Standard setup wizard with desktop and Start Menu shortcuts.
+* **[Download CilamAI-Portable.exe](https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-0.1.0.1-Portable.exe)** - Standalone portable executable (no installation required).
 
 ### Quick Install (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/CilamAI/CilamAI/refs/heads/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/XDev127/CilamAI/refs/heads/main/install.ps1 | iex
 ```
 
 ## Keyboard Shortcuts

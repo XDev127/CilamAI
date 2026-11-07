@@ -14,7 +14,7 @@ Thank you for your interest in contributing to **CilamAI**! We welcome bug repor
 ### Setup
 1. **Fork & Clone** the repository:
    ```bash
-   git clone https://github.com/CilamAI/CilamAI.git
+   git clone https://github.com/XDev127/CilamAI.git
    cd CilamAICode
    ```
 2. **Install dependencies**:

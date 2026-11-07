@@ -6,13 +6,13 @@ Write-Host "Starting CilamAI Desktop Installation..." -ForegroundColor Cyan
 
 if ($Version -eq "latest") {
     Write-Host "Checking for the latest version..."
-    $tagsUrl = "https://api.github.com/repos/CilamAI/CilamAI/tags"
-    $downloadUrl = "https://github.com/CilamAI/CilamAI/releases/download/v0.1.0.1/CilamAI-Setup.exe"
+    $tagsUrl = "https://api.github.com/repos/XDev127/CilamAI/tags"
+    $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/v0.1.0.1/CilamAI-Setup.exe"
     try {
         $tags = Invoke-RestMethod -Uri $tagsUrl -Method Get -Headers @{ "User-Agent" = "CilamAI" } -ErrorAction Stop
         if ($tags.Count -gt 0) {
             $latestTag = $tags[0].name
-            $downloadUrl = "https://github.com/CilamAI/CilamAI/releases/download/$latestTag/CilamAI-Setup.exe"
+            $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/$latestTag/CilamAI-Setup.exe"
             Write-Host "Found version: $latestTag"
         }
     }
@@ -21,7 +21,7 @@ if ($Version -eq "latest") {
 }
 else {
     Write-Host "Using specified version: $Version"
-    $downloadUrl = "https://github.com/CilamAI/CilamAI/releases/download/$Version/CilamAI-Setup.exe"
+    $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/$Version/CilamAI-Setup.exe"
 }
 
 $randomStr = -join ((48..57) + (97..122) | Get-Random -Count 6 | ForEach-Object { [char]$_ })

@@ -649,8 +649,8 @@ ipcMain.handle("app:copy-image-to-clipboard", (_event, dataUrl) => {
 });
 ipcMain.handle("app:check-updates", async () => {
   const fallbackVersion = app.getVersion();
-  const defaultDownloadUrl = "https://github.com/CilamAI/CilamAI/releases/latest/download/CilamAI-Setup.exe";
-  const fallbackReleaseUrl = `https://github.com/CilamAI/CilamAI/releases/tag/v${fallbackVersion}`;
+  const defaultDownloadUrl = "https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe";
+  const fallbackReleaseUrl = `https://github.com/XDev127/CilamAI/releases/tag/v${fallbackVersion}`;
   const tagFromUrl = (url) => {
     const match = String(url || "").match(/\/releases\/tag\/([^/?#]+)/i);
     return match ? decodeURIComponent(match[1]) : "";
@@ -685,12 +685,12 @@ ipcMain.handle("app:check-updates", async () => {
     });
     let release = null;
     try {
-      release = await getJson("https://api.github.com/repos/CilamAI/CilamAI/releases/latest");
+      release = await getJson("https://api.github.com/repos/XDev127/CilamAI/releases/latest");
     } catch {
       try {
-        const tags = await getJson("https://api.github.com/repos/CilamAI/CilamAI/tags");
+        const tags = await getJson("https://api.github.com/repos/XDev127/CilamAI/tags");
         if (Array.isArray(tags) && tags.length > 0) {
-          release = { tag_name: tags[0].name, html_url: `https://github.com/CilamAI/CilamAI/releases/tag/${tags[0].name}` };
+          release = { tag_name: tags[0].name, html_url: `https://github.com/XDev127/CilamAI/releases/tag/${tags[0].name}` };
         }
       } catch {
       }
@@ -698,8 +698,8 @@ ipcMain.handle("app:check-updates", async () => {
     const releaseTag = release?.tag_name || release?.name || tagFromUrl(release?.html_url) || fallbackVersion;
     const latest = String(releaseTag || fallbackVersion).replace(/^CilamAI\s+v?/i, "").replace(/^v/i, "").trim() || fallbackVersion;
     const assetUrl = release?.assets?.find((asset) => /CilamAI-Setup\.exe$/i.test(asset.name || ""))?.browser_download_url;
-    const downloadUrl = assetUrl || (release?.tag_name ? `https://github.com/CilamAI/CilamAI/releases/download/${release.tag_name}/CilamAI-Setup.exe` : defaultDownloadUrl);
-    const releasePageUrl = release?.html_url || `https://github.com/CilamAI/CilamAI/releases/tag/v${latest}`;
+    const downloadUrl = assetUrl || (release?.tag_name ? `https://github.com/XDev127/CilamAI/releases/download/${release.tag_name}/CilamAI-Setup.exe` : defaultDownloadUrl);
+    const releasePageUrl = release?.html_url || `https://github.com/XDev127/CilamAI/releases/tag/v${latest}`;
     return { ok: true, current: app.getVersion(), latest, url: releasePageUrl, downloadUrl };
   } catch (err) {
     return {
@@ -720,9 +720,9 @@ ipcMain.handle("app:download-and-install", async (_event, downloadUrl) => {
   const filePath = join(tempDir, fileName);
   const candidateUrls = [
     downloadUrl,
-    "https://github.com/CilamAI/CilamAI/releases/latest/download/CilamAI-Setup.exe",
+    "https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe",
     // Never pin an old release here: follow the running build's version.
-    `https://github.com/CilamAI/CilamAI/releases/download/v${app.getVersion()}/CilamAI-Setup.exe`
+    `https://github.com/XDev127/CilamAI/releases/download/v${app.getVersion()}/CilamAI-Setup.exe`
   ].filter(Boolean);
   let downloaded = false;
   for (const url of candidateUrls) {
@@ -756,7 +756,7 @@ ipcMain.handle("app:download-and-install", async (_event, downloadUrl) => {
     } catch (e) {
     }
   }
-  const targetUrl = downloadUrl || "https://github.com/CilamAI/CilamAI/releases/latest";
+  const targetUrl = downloadUrl || "https://github.com/XDev127/CilamAI/releases/latest";
   shell.openExternal(targetUrl);
   return { ok: true, openedInBrowser: true };
 });

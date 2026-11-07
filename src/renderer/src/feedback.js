@@ -144,7 +144,7 @@ function init() {
 
   if (githubBtn) {
     githubBtn.addEventListener('click', () => {
-      window.electron?.openExternal?.('https://github.com/CilamAI/CilamAI/issues/new/choose')
+      window.electron?.openExternal?.('https://github.com/XDev127/CilamAI/issues/new/choose')
     })
   }
 
@@ -170,7 +170,7 @@ function init() {
       if (steps) body += `\n\n**Steps to reproduce:**\n${steps}`
       if (hasScreenshot) body += `\n\n**Attachment:** ${fileName}`
 
-      const url = `https://github.com/CilamAI/CilamAI/issues/new?title=${encodeURIComponent(typeLabel)}&body=${encodeURIComponent(body)}`
+      const url = `https://github.com/XDev127/CilamAI/issues/new?title=${encodeURIComponent(typeLabel)}&body=${encodeURIComponent(body)}`
       window.electron?.openExternal?.(url)
 
       form.reset()

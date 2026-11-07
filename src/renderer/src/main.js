@@ -5413,7 +5413,7 @@ function initFeedback() {
   })
 
   fv.querySelector('[data-action="open-github-issues"]')?.addEventListener('click', () => {
-    window.electron?.openExternal?.('https://github.com/CilamAI/CilamAI/issues/new/choose')
+    window.electron?.openExternal?.('https://github.com/XDev127/CilamAI/issues/new/choose')
   })
 
   const form = fv.querySelector('#feedback-form')
