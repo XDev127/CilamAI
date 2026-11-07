@@ -2,17 +2,17 @@ param (
     [string]$Version = "latest"
 )
 
-Write-Host "Starting CilamAI Desktop Installation..." -ForegroundColor Cyan
+Write-Host "[*] Starting CilamAI Desktop Installation..." -ForegroundColor Cyan
 
 if ($Version -eq "latest") {
-    Write-Host "Checking for the latest version..."
+    Write-Host "[*] Checking for the latest version..."
     $releasesUrl = "https://api.github.com/repos/XDev127/CilamAI/releases/latest"
     try {
         $release = Invoke-RestMethod -Uri $releasesUrl -Method Get -Headers @{ "User-Agent" = "CilamAI" } -ErrorAction Stop
         $asset = $release.assets | Where-Object { $_.name -match "Setup\.exe$" } | Select-Object -First 1
         if ($asset) {
             $downloadUrl = $asset.browser_download_url
-            Write-Host "Found version: $($release.tag_name)"
+            Write-Host "[+] Found version: $($release.tag_name)" -ForegroundColor Green
         }
         else {
             throw "No Setup.exe asset found in the latest release."
@@ -24,14 +24,14 @@ if ($Version -eq "latest") {
     }
 }
 else {
-    Write-Host "Using specified version: $Version"
+    Write-Host "[*] Using specified version: $Version"
     $downloadUrl = "https://github.com/XDev127/CilamAI/releases/download/$Version/CilamAI-Setup.exe"
 }
 
 $randomStr = -join ((48..57) + (97..122) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
 $installerPath = Join-Path -Path $env:TEMP -ChildPath "CilamAI-Setup-$randomStr.exe"
 
-Write-Host "Downloading installer from GitHub..."
+Write-Host "[*] Downloading installer from GitHub..."
 
 Try {
     # Use .NET's modern HTTP defaults (TLS 1.2+); older PowerShell defaults can
@@ -61,7 +61,7 @@ Try {
                 $hashes = "#" * [math]::Floor($percent / 5)
                 $spaces = " " * (20 - [math]::Floor($percent / 5))
 
-                Write-Host -NoNewline "`rDownload: [$hashes$spaces] $percent%"
+                Write-Host -NoNewline "`r[*] Download: [$hashes$spaces] $percent%"
                 $lastDraw = $percent
             }
         }
@@ -71,9 +71,9 @@ Try {
     $stream.Close()
     $response.Close()
 
-    Write-Host "`nDownload successful! Saved to $installerPath" -ForegroundColor Green
+    Write-Host "`n[+] Download successful! Saved to $installerPath" -ForegroundColor Green
 
-    Write-Host -NoNewline "Launching the installer silently... " -ForegroundColor Cyan
+    Write-Host -NoNewline "[*] Launching the installer silently... " -ForegroundColor Cyan
     $proc = Start-Process -FilePath $installerPath `
         -ArgumentList "/SP- /SILENT /NORESTART /SUPPRESSMSGBOXES" `
         -PassThru -NoNewWindow
@@ -85,10 +85,10 @@ Try {
         $counter++
         Start-Sleep -Milliseconds 100
     }
-    Write-Host "`b Done!" -ForegroundColor Green
-    Write-Host "Installer exit code: $($proc.ExitCode)" -ForegroundColor Green
+    Write-Host "`b[+] Done!" -ForegroundColor Green
+    Write-Host "[*] Installer exit code: $($proc.ExitCode)" -ForegroundColor Green
 
-    Write-Host "Installation process complete." -ForegroundColor Green
+    Write-Host "[+] Installation process complete." -ForegroundColor Green
 }
 Catch {
     if ($null -ne $fileStream) { $fileStream.Close() }
