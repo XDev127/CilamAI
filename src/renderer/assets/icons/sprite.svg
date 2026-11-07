@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="icon-1" viewBox="0 0 16 16">
+            <path d="M13 8H3M7 4 3 8l4 4" />
+          </symbol>
+  <symbol id="icon-2" viewBox="0 0 16 16">
+            <path d="M3 8h9M8 4l4 4-4 4" />
+          </symbol>
+  <symbol id="icon-3" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </symbol>
+  <symbol id="icon-4" viewBox="0 0 10 10">
+          <line x1="0.5" y1="5" x2="9.5" y2="5" />
+        </symbol>
+  <symbol id="icon-5" viewBox="0 0 10 10">
+          <rect x="0.5" y="0.5" width="9" height="9" rx="1" />
+        </symbol>
+  <symbol id="icon-6" viewBox="0 0 10 10">
+          <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="0.8" />
+          <path d="M7.5 2.5 V1.5 H1 V7.5 H2" />
+        </symbol>
+  <symbol id="icon-7" viewBox="0 0 10 10">
+          <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" />
+          <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" />
+        </symbol>
+  <symbol id="icon-8" viewBox="0 0 24 24">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </symbol>
+  <symbol id="icon-9" viewBox="0 0 24 24">
+        <path
+          d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+      </symbol>
+  <symbol id="icon-10" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.3-4.3" />
+      </symbol>
+  <symbol id="icon-11" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 .33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+      </symbol>
+  <symbol id="icon-12" viewBox="0 0 24 24">
+        <path
+          d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+      </symbol>
+  <symbol id="icon-13" viewBox="0 0 24 24">
+        <circle cx="8" cy="8" r="6" />
+        <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+        <path d="M7 6h1v4" />
+        <path d="m16.71 13.88.7.71-2.82 2.82" />
+      </symbol>
+  <symbol id="icon-14" viewBox="0 0 24 24">
+        <line x1="12" y1="19" x2="12" y2="5" />
+        <polyline points="5 12 12 5 19 12" />
+      </symbol>
+  <symbol id="icon-15" viewBox="0 0 50 50">
+        <circle class="md3-loader-circle md3-loader-path" cx="25" cy="25" r="20"></circle>
+      </symbol>
+  <symbol id="icon-16" viewBox="0 0 24 24">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </symbol>
+  <symbol id="icon-17" viewBox="0 0 24 24">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </symbol>
+  <symbol id="icon-18" viewBox="0 0 24 24">
+                <path
+                  d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </symbol>
+  <symbol id="icon-19" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </symbol>
+  <symbol id="icon-20" viewBox="0 0 24 24">
+              <path d="m6 9 6 6 6-6" />
+            </symbol>
+  <symbol id="icon-21" viewBox="0 0 24 24">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                </symbol>
+  <symbol id="icon-22" viewBox="0 0 24 24">
+            <line x1="12" y1="19" x2="12" y2="5" />
+            <polyline points="5 12 12 5 19 12" />
+          </symbol>
+  <symbol id="icon-23" viewBox="0 0 24 24">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+          </symbol>
+  <symbol id="icon-24" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#121212" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#1c1c1c" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#2a2a2a" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#2a2a2a" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#2a2a2a" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#2a2a2a" />
+              <circle cx="86" cy="48" r="4" fill="#f0f0f0" />
+            </symbol>
+  <symbol id="icon-25" viewBox="0 0 96 60">
+              <rect width="48" height="60" x="0" rx="8" fill="#ffffff" />
+              <rect width="48" height="60" x="48" fill="#121212" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#f2f2f2" />
+              <rect x="52" y="4" width="22" height="52" rx="6" fill="#1c1c1c" />
+              <rect x="30" y="10" width="14" height="7" rx="3.5" fill="#e6e6e6" />
+              <rect x="30" y="24" width="14" height="12" rx="6" fill="#e6e6e6" />
+              <rect x="78" y="10" width="14" height="7" rx="3.5" fill="#2a2a2a" />
+              <rect x="78" y="24" width="14" height="12" rx="6" fill="#2a2a2a" />
+              <circle cx="86" cy="48" r="4" fill="#121212" />
+            </symbol>
+  <symbol id="icon-26" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#ffffff" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#f2f2f2" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#e6e6e6" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#e6e6e6" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#e6e6e6" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#e6e6e6" />
+              <circle cx="86" cy="48" r="4" fill="#111111" />
+            </symbol>
+  <symbol id="icon-27" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#0d1524" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#16233c" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#223252" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#223252" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#223252" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#223252" />
+              <circle cx="86" cy="48" r="4" fill="#4d9fff" />
+            </symbol>
+  <symbol id="icon-28" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#1c0d0d" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#331616" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#4a2020" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#4a2020" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#4a2020" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#4a2020" />
+              <circle cx="86" cy="48" r="4" fill="#ff5a5a" />
+            </symbol>
+  <symbol id="icon-29" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#171407" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#2b250e" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#3f3618" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#3f3618" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#3f3618" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#3f3618" />
+              <circle cx="86" cy="48" r="4" fill="#f5c518" />
+            </symbol>
+  <symbol id="icon-30" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#0c1710" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#12261a" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#1a3524" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#1a3524" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#1a3524" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#1a3524" />
+              <circle cx="86" cy="48" r="4" fill="#3ddc84" />
+            </symbol>
+  <symbol id="icon-31" viewBox="0 0 96 60">
+              <rect width="96" height="60" rx="8" fill="#000000" />
+              <rect x="4" y="4" width="22" height="52" rx="6" fill="#000000" />
+              <rect x="8" y="10" width="14" height="5" rx="2.5" fill="#1a1a1a" />
+              <rect x="8" y="20" width="14" height="5" rx="2.5" fill="#1a1a1a" />
+              <rect x="30" y="10" width="38" height="7" rx="3.5" fill="#1a1a1a" />
+              <rect x="30" y="24" width="60" height="12" rx="6" fill="#1a1a1a" />
+              <circle cx="86" cy="48" r="4" fill="#f0f0f0" />
+            </symbol>
+  <symbol id="icon-32" viewBox="0 0 24 24">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+            </symbol>
+  <symbol id="icon-33" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </symbol>
+  <symbol id="icon-34" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol>
+  <symbol id="icon-35" viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></symbol>
+  <symbol id="icon-36" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16V4h12"/></symbol>
+  <symbol id="icon-37" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="icon-38" viewBox="0 0 24 24">
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </symbol>
+  <symbol id="icon-39" viewBox="0 0 24 24">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </symbol>
+  <symbol id="icon-40" viewBox="0 0 24 24">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+        </symbol>
+  <symbol id="icon-41" viewBox="0 0 24 24">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 2.3l1.38 9a2 2 0 0 0 2 1.7zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+        </symbol>
+  <symbol id="icon-42" viewBox="0 0 96 96"><circle cx="48" cy="48" r="27"/><path d="M21 48h54M48 21c8 8 12 17 12 27s-4 19-12 27c-8-8-12-17-12-27s4-19 12-27ZM27 31c12 6 30 6 42 0M27 65c12-6 30-6 42 0"/></symbol>
+  <symbol id="icon-43" viewBox="0 0 96 96"><path d="m48 19 27 15v28L48 77 21 62V34l27-15Z"/><path d="m21 34 27 15 27-15M48 49v28M36 27l27 15"/></symbol>
+  <symbol id="icon-44" viewBox="0 0 96 96"><circle cx="48" cy="48" r="12"/><path d="M48 19v10M48 67v10M19 48h10M67 48h10M28 28l7 7M61 61l7 7M68 28l-7 7M35 61l-7 7"/><circle cx="48" cy="48" r="27"/></symbol>
+  <symbol id="icon-45" viewBox="0 0 96 96"><path d="M24 25h48v35H42L29 72V60h-5V25Z"/><path d="M35 42h26M35 50h17"/></symbol>
+  <symbol id="icon-46" viewBox="0 0 96 96"><path d="m48 18 7 20 21 1-16 13 5 21-17-12-17 12 5-21-16-13 21-1 7-20Z"/></symbol>
+  <symbol id="icon-47" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="icon-48" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+</svg>

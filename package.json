@@ -1,0 +1,88 @@
+{
+  "name": "cilamai",
+  "productName": "CilamAI",
+  "description": "Hi i'm CilamAI star=target",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "out/main/index.js",
+  "bin": {
+    "cilamai": "bin/cilamai.js"
+  },
+  "author": "CilamAI",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "files": [
+    "bin",
+    "out",
+    "resources",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite build && electron-vite preview",
+    "dist": "electron-vite build && electron-builder --win",
+    "dist:portable": "electron-vite build && electron-builder --win portable",
+    "dist:nsis": "electron-vite build && electron-builder --win nsis",
+    "dist:dir": "electron-vite build && electron-builder --win --dir",
+    "iss": "node scripts/iss.mjs",
+    "postinstall": "node node_modules/electron/install.js"
+  },
+  "build": {
+    "appId": "com.cilamai.desktop",
+    "productName": "CilamAI",
+    "buildVersion": "0.1.0-1",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "resources/icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}Portable.${ext}"
+    },
+    "nsis": {
+      "artifactName": "${productName}Setup.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CilamAI",
+      "displayLanguageSelector": true
+    },
+    "directories": {
+      "output": "release_build"
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^5.0.0",
+    "vite": "^7.3.6"
+  },
+  "allowScripts": {
+    "electron@43.3.0": true
+  },
+  "dependencies": {
+    "@material/progress-indicator": "^14.0.0",
+    "highlight.js": "^11.11.1",
+    "pngjs": "^7.0.0"
+  }
+}
