@@ -19,7 +19,7 @@ if ($Version -eq "latest") {
         }
     }
     catch {
-        Write-Host "Could not resolve the latest release download URL: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[!] Could not resolve the latest release download URL: $($_.Exception.Message)" -ForegroundColor Red
         exit 1
     }
 }
@@ -95,6 +95,6 @@ Catch {
     if ($null -ne $stream) { $stream.Close() }
     if ($null -ne $response) { $response.Close() }
 
-    Write-Host "`nAn error occurred during the download or installation process." -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host "`n[!] An error occurred during the download or installation process." -ForegroundColor Red
+    Write-Host "    $($_.Exception.Message)" -ForegroundColor Red
 }
