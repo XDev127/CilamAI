@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://file.garden/aPSLaf7myCkWreuK/Untitled_design__9_-removebg-preview.png" width="170" alt="CilamAI Logo" />
+<img src="docs/logo.png" width="170" alt="CilamAI Logo" />
 <p align="center">
   <a href="https://github.com/XDev127/CilamAI/releases/latest">
     <img alt="Release" src="https://img.shields.io/github/v/release/XDev127/CilamAI?style=flat-square" />
@@ -25,7 +25,7 @@
 
 <div align="center">
 
-<img src="https://file.garden/aPSLaf7myCkWreuK/Free%20Model%20For%20Out!.png" width="1000" alt="CilamAI Screenshot" />
+<img src="docs/screenshot.png" width="1000" alt="CilamAI Screenshot" />
 
 </div>
 
