@@ -17,6 +17,7 @@ github_release/
 *.pfx
 
 # Logs & stats
+logs/
 *.log
 npm-debug.log*
 STATS.md

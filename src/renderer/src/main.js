@@ -15,8 +15,6 @@ if (settings.themeRestoreVersion !== 3) {
   settings.themeRestoreVersion = 3
   localStorage.setItem('cilamai-settings', JSON.stringify(settings))
 }
-// Gate the shimmer before init runs so the splash skeleton animates from the
-// first painted frame instead of waiting for the settings wiring further down.
 if (settings.shimmerEffect !== false) document.body.classList.add('shimmer-enabled')
 
 const LANG_BASE = './lang/'
@@ -151,8 +149,6 @@ const applyTheme = (skipIpc = false) => {
   resolvedTheme = theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
   document.documentElement.dataset.theme = resolvedTheme
   if (!skipIpc) window.electron?.setTheme?.(theme)
-  // The "Current theme" thumbnail is a real window capture — re-shoot it so it
-  // follows the theme instead of staying stale (e.g. white capture in dark mode).
   refreshThemeShot()
 }
 const THEME_LABELS = {
@@ -181,7 +177,6 @@ const THEME_LABELS = {
   'vercel-light': 'Vercel Light'
 }
 const CURRENT_THEME_SWATCHES = ['--accent', '--composer-bg', '--surface-2', '--sidebar-bg', '--bg']
-// General settings summary of the active theme: miniature, name and palette swatches.
 const syncCurrentThemeCard = () => {
   const thumb = document.querySelector('#current-theme-thumb')
   const nameEl = document.querySelector('#current-theme-name')
@@ -204,21 +199,17 @@ const syncCurrentThemeCard = () => {
 
 let themeShotPending = false
 let themeShotDirty = false
-// Real capture of this window, used as the Current theme thumbnail.
 const refreshThemeShot = async () => {
   const capture = window.electron?.themeShot
   const img = document.querySelector('#current-theme-shot')
   if (!capture || !img) return
   if (themeShotPending) {
-    // A capture is in flight; mark dirty so the final theme gets re-shot once it finishes.
     themeShotDirty = true
     return
   }
   const view = document.querySelector('.settings-view')
   let restoreVisibility = null
   if (view && !view.hidden) {
-    // Hide the settings overlay for the capture so the thumbnail shows the app,
-    // not the settings page itself (which would recurse into its own thumbnail).
     restoreVisibility = view.style.visibility
     view.style.visibility = 'hidden'
   }
@@ -232,13 +223,10 @@ const refreshThemeShot = async () => {
       img.hidden = false
       if (mock) mock.hidden = true
     } else {
-      // A bad/failed capture must not leave a stale shot from another theme —
-      // fall back to the mock, which is drawn from the live theme tokens.
       img.hidden = true
       if (mock) mock.hidden = false
     }
   } catch {
-    // Keep the drawn mock as the fallback.
     img.hidden = true
     const mock = document.querySelector('#current-theme-mock')
     if (mock) mock.hidden = false
@@ -349,8 +337,6 @@ function initThemeModeMenu() {
   syncThemeControls()
 }
 applyTheme()
-// Settings > General "Reduce motion". 'on' forces reduced motion for CSS *and*
-// scripted motion, 'off' disables only the app-level forcing, 'system' follows the OS.
 const prefersReducedMotion = () => {
   if (document.documentElement.dataset.animations === 'off') return true
   const pref = document.documentElement.dataset.reduceMotion
@@ -359,8 +345,6 @@ const prefersReducedMotion = () => {
   if (document.documentElement.dataset.animations === 'off') return true
   return matchMedia('(prefers-reduced-motion: reduce)').matches
 }
-// Settings > General > Animations: master switch that disables every animation,
-// transition and smooth scroll in the app (CSS gate + scripted motion above).
 const applyAnimations = () => {
   document.documentElement.dataset.animations = settings.animationsEnabled === false ? 'off' : 'on'
 }
@@ -371,13 +355,9 @@ const applyReduceMotion = () => {
   document.documentElement.dataset.reduceMotion = pref
 }
 applyReduceMotion()
-// The UI font size setting was removed; clear any page zoom it left behind.
 window.electron?.setZoomFactor?.(1)
-// Splash screen timing: minimum time the skeleton stays up, measured from page load.
 const MIN_SPLASH_MS = 2000
 const splashStartedAt = performance.now()
-// Dev-only title bar marker (with tooltip). Packaged builds tree-shake this branch,
-// so the badge never ships.
 if (import.meta.env?.DEV) {
   const devBadge = document.querySelector('[data-dev-badge]')
   if (devBadge) devBadge.hidden = false
@@ -936,8 +916,6 @@ function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    // Fences are frequently indented and may carry a language or trailing spaces, so
-    // match the whole line instead of requiring "```" at column 0.
     const fence = line.match(/^\s*(`{3,}|~{3,})\s*([\w+#.-]*)\s*$/)
     if (fence) {
       flushParagraph()
@@ -1059,8 +1037,6 @@ function renderMarkdown(text) {
         break
       }
       i--
-      // Strip every leading marker: models sometimes emit "1. 1. text", which used to
-      // render as a doubled number inside the <li>.
       result.push(`<ol>${listItems.map(item => `<li>${renderInline(item.replace(/^(\s*\d+[.)]\s+)+/, ''))}</li>`).join('')}</ol>`)
       continue
     }
@@ -1076,7 +1052,6 @@ function renderMarkdown(text) {
 
   if (inCodeBlock && codeBlockContent.length) {
     const code = codeBlockContent.join('\n')
-    // An unterminated fence with no content used to paint an empty code card.
     if (code.trim()) {
       result.push(`<pre><code class="language-${codeLang} hljs">${code}</code></pre>`)
     }
@@ -1338,7 +1313,6 @@ function createThinkingBlock(open = false, active = open) {
   chevron.innerHTML = '<polyline points="9 18 15 12 9 6"/>'
   summary.appendChild(chevron)
 
-  
   const body = document.createElement('div')
   body.className = 'thinking-body'
   thinking.append(summary, body)
@@ -1597,11 +1571,7 @@ function showSettings() {
   const view = document.querySelector('.settings-view')
   if (!view) return
   view.hidden = false
-  // The body keeps its scroll offset between opens; without this the pane can
-  // re-open scrolled down and the first card gets clipped under the header.
   document.querySelector('.settings-body')?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' })
-  // Re-shoot the Current-theme thumbnail so it always matches the live theme
-  // instead of lingering from a capture taken under a different theme.
   refreshThemeShot()
   const urlInput = document.querySelector('#api-url')
   if (urlInput) urlInput.value = isOllama() ? (ollamaUrl || DEFAULT_OLLAMA_URL) : baseUrl
@@ -1790,7 +1760,6 @@ function showReleaseNotes() {
   rn.classList.add('loaded')
   const loading = rn.querySelector('.release-loading')
   if (loading) loading.hidden = true
-  // All versions are stacked in one scroll (the version list column was removed).
   rn.querySelectorAll('.release-section').forEach((s) => {
     s.hidden = false
   })
@@ -1866,7 +1835,6 @@ function resetChat() {
   if (sl) sl.hidden = true
 
   showChat()
-  // Greeting is cosmetic: never let it interrupt the caller.
   refreshAiWelcome().catch(() => {})
 }
 
@@ -1874,17 +1842,12 @@ function hideStartup() {
   const el = document.querySelector('.startup-loading')
   if (!el || el.hidden) return
   el.classList.add('fade-out')
-  // Match the 0.4s opacity transition, otherwise the fade is cut mid-way.
   setTimeout(() => {
     el.hidden = true
     refreshThemeShot()
   }, 420)
 }
 
-// ---------------------------------------------------------------------------
-// Updates: the main process owns the release API (GitHub releases with tag
-// fallback); this side decides when to ask and surfaces the titlebar pill.
-// ---------------------------------------------------------------------------
 const UPDATE_CHECK_KEY = 'cilamai-update-check'
 const UPDATE_CHECK_TTL = 6 * 60 * 60 * 1000
 
@@ -1903,17 +1866,16 @@ const compareVersions = (a, b) => {
 
 function initUpdatePill() {
   const pill = document.querySelector('[data-update]')
+  const sep = document.querySelector('[data-update-sep]')
   const check = window.electron?.checkUpdates
   if (!pill || !check) return
-  // Hidden by default — the pill only appears when the real API check finds a
-  // newer release. The check itself is a silent 5s background poll (no UI).
-  pill.hidden = true
   let pending = false
+  pill.hidden = true
+  if (sep) sep.hidden = true
+  pill.title = 'Check for updates'
 
   const checkNow = async ({ silent = false, force = false } = {}) => {
     if (pending) return null
-    // The 6h throttle only guards opportunistic checks — explicit checks
-    // (manual menu item, the 5s auto loop) always hit the API.
     if (!force) {
       const ts = Number(localStorage.getItem('cilamai-update-checked-at') || 0)
       if (Date.now() - ts < 6 * 3600e3) return null
@@ -1924,14 +1886,19 @@ function initUpdatePill() {
       const result = await check()
       if (!result?.ok) throw new Error(result?.error || 'Update check failed')
       const newer = Boolean(result.latest && compareVersions(result.latest, result.current) > 0)
-      // Show the pill only for a genuinely newer version; hide it when current.
-      pill.hidden = !newer
       pill.classList.toggle('has-update', newer)
+      pill.hidden = !newer
+      if (sep) sep.hidden = !newer
       if (newer) {
         pill.title = `Update CilamAI to v${result.latest}`
         pill.dataset.downloadUrl = result.downloadUrl || result.url || ''
         pill.dataset.latest = result.latest
         pill.dataset.version = result.latest
+      } else {
+        pill.title = `Check for updates (v${result.current})`
+        delete pill.dataset.downloadUrl
+        delete pill.dataset.latest
+        delete pill.dataset.version
       }
       try {
         localStorage.setItem(UPDATE_CHECK_KEY, JSON.stringify({ at: Date.now(), latest: result.latest || '' }))
@@ -1949,16 +1916,19 @@ function initUpdatePill() {
   pill.addEventListener('click', async () => {
     const url = pill.dataset.downloadUrl
     if (!url) {
-      // No pending update: the same button doubles as a manual check.
-      await checkNow({ force: true })
+      if (pending) return
+      pill.disabled = true
+      try {
+        await checkNow({ force: true })
+      } finally {
+        pill.disabled = false
+      }
       return
     }
     pill.disabled = true
     showNotification(`Downloading CilamAI v${pill.dataset.version || ''}...`, 'info')
     try {
       const r = await window.electron?.downloadAndInstall?.(url)
-      // downloadAndInstall resolves with {ok:false,error} instead of throwing,
-      // so both paths must be handled and the pill re-enabled in `finally`.
       if (!r || !r.ok) showNotification(`Download failed: ${r?.error || 'unknown error'}`, 'error')
       else showNotification('Installing update...', 'info')
     } catch (err) {
@@ -1968,10 +1938,7 @@ function initUpdatePill() {
     }
   })
 
-  // Poll the update API every 5s so a newly published release surfaces without
-  // a restart. If GitHub rate-limits us (403), back off to 15 minutes instead
-  // of hammering the API; the next answered check resets the 5s cadence.
-  const CHECK_INTERVAL_MS = 5000
+  const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
   const RATE_LIMITED_BACKOFF_MS = 15 * 60e3
   let autoCheckTimer = null
   const scheduleAutoCheck = (ms) => {
@@ -1981,11 +1948,9 @@ function initUpdatePill() {
       scheduleAutoCheck(limited ? RATE_LIMITED_BACKOFF_MS : CHECK_INTERVAL_MS)
     }, ms)
   }
-  scheduleAutoCheck(CHECK_INTERVAL_MS)
+  scheduleAutoCheck(10e3)
 }
 
-// Empty-chat greeting: written by the active model, cached for a few hours, with the
-// static line in index.html as the fallback while it loads or if the call fails.
 const WELCOME_LINE_KEY = 'cilamai-welcome-line'
 const WELCOME_LINE_TTL = 3 * 60 * 60 * 1000
 let welcomeLinePending = false
@@ -2011,7 +1976,6 @@ const readWelcomeLineCache = () => {
     const saved = JSON.parse(localStorage.getItem(WELCOME_LINE_KEY) || 'null')
     if (saved?.text && Date.now() - Number(saved.at || 0) < WELCOME_LINE_TTL) return saved.text
   } catch {
-    // ignore malformed cache
   }
   return ''
 }
@@ -2029,12 +1993,9 @@ const refreshAiWelcome = async () => {
   try {
     const hour = new Date().getHours()
     const partOfDay = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
-    // Only greet by name when the account value actually looks like one; handles such
-    // as "fukdontpassword" would otherwise end up in the welcome line.
     const rawFirst = String(currentUser?.name || '').trim().split(' ')[0]
     const looksLikeName = /^[A-Za-z][A-Za-z'-]{1,15}$/.test(rawFirst) && !/pass|admin|user|test|[0-9]/i.test(rawFirst)
     const firstName = looksLikeName ? rawFirst : ''
-    // Same model resolution the composer uses, so the greeting runs on the active model.
     const modelEl = document.querySelector('.model-name')
     const picked = modelEl?.dataset?.fullModel || modelEl?.textContent?.trim() || settings.model || DEFAULT_FREE_MODEL
     const modelId = picked === 'deepseek-v3' ? DEFAULT_FREE_MODEL : picked
@@ -2057,7 +2018,6 @@ const refreshAiWelcome = async () => {
       localStorage.setItem(WELCOME_LINE_KEY, JSON.stringify({ text: line, at: Date.now() }))
     }
   } catch {
-    // Keep the static greeting.
   } finally {
     welcomeLinePending = false
   }
@@ -2098,8 +2058,6 @@ function initCommandPalette() {
   const list = overlay.querySelector('.cmd-palette-list')
   const empty = overlay.querySelector('.cmd-palette-empty')
 
-  // Custom UI-kit scrollbar: native bars are hidden app-wide, so the panel
-  // draws its own slim rounded rail + thumb over the list's right edge.
   const panel = overlay.querySelector('.cmd-palette-panel')
   const scrollRail = document.createElement('div')
   scrollRail.className = 'cmd-scroll-rail'
@@ -2132,8 +2090,6 @@ function initCommandPalette() {
 
   list?.addEventListener('scroll', updatePaletteScrollbar, { passive: true })
 
-  // Every theme the app ships (light ones first, then dark), so the command
-  // menu never falls behind the palette. Picker cards are a curated subset.
   const THEME_CHOICES = [
     { value: 'system', label: 'System', keywords: 'system auto os follow theme color scheme appearance' },
     { value: 'light', label: 'Light', keywords: 'light white day theme color scheme appearance' },
@@ -2401,9 +2357,6 @@ function initCommandPalette() {
 }
 
 async function init() {
-  // Failsafe first: register the splash dismissal before any await or risky
-  // work. If an IPC never settles (e.g. loadSessions), the skeleton would
-  // otherwise stay on screen forever instead of timing out.
   setTimeout(hideStartup, 8000)
 
   const input = document.querySelector('.composer-input')
@@ -2489,7 +2442,6 @@ async function init() {
   if (chat && scrollBtn) {
     chat.addEventListener('scroll', updateScrollBtn)
     window.addEventListener('resize', updateScrollBtn)
-    // Keep the button clear of the composer: its height changes with the textarea.
     const composerEl = document.querySelector('.composer')
     const mainEl = document.querySelector('.main')
     const syncScrollBtnOffset = () => {
@@ -2534,7 +2486,6 @@ async function init() {
     })
   })
   initThemeModeMenu()
-  // "Change theme" jumps to the Appearance picker where the palettes live.
   document.querySelector('#current-theme-change')?.addEventListener('click', () => {
     document.querySelector('[data-settings-target="appearance"]')?.click()
     const picker = document.querySelector('.theme-options-large')
@@ -2643,10 +2594,6 @@ async function init() {
     refreshSessionSettings()
   })
 
-  // Real settings search: filter the actual setting rows (and theme cards)
-  // across every pane, not just the sidebar labels. Every pane that has a
-  // match is shown stacked, cards without visible rows are hidden, and the
-  // previously active pane is restored when the query is cleared.
   const settingsBody = document.querySelector('.settings-body')
   let noResultsEl = settingsBody?.querySelector('.settings-no-results')
   if (settingsBody && !noResultsEl) {
@@ -2657,9 +2604,6 @@ async function init() {
     settingsBody.append(noResultsEl)
   }
   const searchPaneBefore = { id: null }
-  // Wrap the first occurrence of the query in the page label with a highlight
-  // span; an empty query restores the plain label. textContent keeps returning
-  // the full original label while highlighted, so no cache is needed.
   const setNavLabelHighlight = (item, q) => {
     const span = item.querySelector('span')
     if (!span) return
@@ -2711,8 +2655,6 @@ async function init() {
         if (!firstMatchPane) firstMatchPane = pane
       }
     })
-    // Page list stays fully visible; each matching label gets the query
-    // highlighted and the first matching page is selected.
     const activeId = (firstMatchPane ||
       settingsPanes.find((p) => p.dataset.settingsPane === searchPaneBefore.id))?.dataset.settingsPane
     settingsNavItems.forEach((item) => {
@@ -3025,7 +2967,6 @@ async function init() {
     const applyHideSidebar = (hide) => {
       document.body.classList.toggle('sidebar-collapsed', hide)
       if (hide) {
-        // Also collapse the right panel so the chat area is fully clear.
         const panelEl = document.querySelector('.right-panel')
         if (panelEl && !panelEl.hidden) {
           panelEl.hidden = true
@@ -3677,8 +3618,6 @@ async function init() {
       closeAttachMenu()
       return
     }
-    // Only one composer popover at a time; drop the other one instantly so the two
-    // never overlap while it animates out.
     closeModelMenu(true)
     clearTimeout(attachMenuCloseTimer)
     attachMenu.classList.remove('closing')
@@ -3918,7 +3857,6 @@ async function init() {
       if (changeAvatarBtn) changeAvatarBtn.hidden = false
       if (signoutBtn) signoutBtn.hidden = false
 
-      // Sidebar account card
       const sidebarAvatar = document.getElementById('sidebar-account-avatar')
       const sidebarName = document.getElementById('sidebar-account-name')
       if (sidebarAvatar) renderAvatarImg(sidebarAvatar, '100%')
@@ -3930,7 +3868,6 @@ async function init() {
       if (changeAvatarBtn) changeAvatarBtn.hidden = true
       if (signoutBtn) signoutBtn.hidden = true
 
-      // Sidebar account card - signed out
       const sidebarAvatar = document.getElementById('sidebar-account-avatar')
       const sidebarName = document.getElementById('sidebar-account-name')
       if (sidebarAvatar) sidebarAvatar.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
@@ -4005,8 +3942,6 @@ async function init() {
     }
   })
 
-  // Account row: no dropdown anymore — signed in opens Settings,
-  // signed out opens the sign-in dialog (Account).
   sidebarAccountBtn?.addEventListener('click', (e) => {
     e.stopPropagation()
     if (currentUser && (currentUser.name || currentUser.email)) {
@@ -4295,8 +4230,6 @@ async function init() {
       closeModelMenu()
       return
     }
-    // Only one composer popover at a time; drop the other one instantly so the two
-    // never overlap while it animates out.
     closeAttachMenu(true)
     modelMenu.hidden = false
     if (!modelMenu.hidden) {
@@ -5294,9 +5227,6 @@ async function init() {
   await loadSessionsFromDisk()
   loadModels()
 
-  // Startup no longer reopens the last conversation: the app boots on the welcome
-  // screen with the sidebar sessions intact, and a session is created on the first
-  // message (saveSession -> ensureSession).
   resetChat()
 
   sessions = sessions.filter((s) => (s.messages || []).length > 0 || s.id === currentSessionId)
@@ -5309,8 +5239,6 @@ async function init() {
   initFeedback()
   initUpdatePill()
 
-  // Ready: the UI is rendered, so drop the splash after the next painted frame - but
-  // hold it for at least MIN_SPLASH_MS so the skeleton does not flash by in 80ms.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const remaining = Math.max(0, MIN_SPLASH_MS - (performance.now() - splashStartedAt))
     setTimeout(hideStartup, remaining)
@@ -5475,7 +5403,6 @@ document.querySelectorAll('[data-sidebar-toggle]').forEach(btn => {
   btn.addEventListener('click', toggleSidebar)
 })
 
-// Initialize icon state on load
 updateSidebarToggleIcon()
 
 const PANEL_WIDTH_KEY = 'cilamai-panel-width'
@@ -5859,7 +5786,6 @@ const scrTabBack = (scr, count) => {
   for (let k = 0; k < count; k++) scr.cur.c = clamp((Math.ceil(scr.cur.c / 8) - 1) * 8, 0, scr.cur.c)
 }
 
-// Applies one CSI sequence to a full-screen (alternate buffer) grid.
 const screenCsi = (scr, final, nums) => {
   const n = (i, d) => (nums[i] > 0 ? nums[i] : d)
   const rows = scr.rows
@@ -6108,17 +6034,12 @@ function initTerminalPanel() {
       }
       scr.dirty = new Set(Array.from({ length: visR }, (_, i) => i))
     }
-    // A piped app cannot be told the real size, so it paints its own default
-    // footprint (usually 80x24). Scale the cell metrics so that footprint fills
-    // the panel instead of sitting in the top-left corner.
     const size = measure()
     const fit = clamp(Math.min(size.cols / visC, size.rows / visR), 1, 3)
     const fontPx = `${((size.fs || 12.5) * fit).toFixed(2)}px`
     if (host.style.fontSize !== fontPx) host.style.fontSize = fontPx
     scr.cellW = size.cw * fit
     scr.cellH = size.lh * fit
-    // The app paints its own default footprint; centre it in the panel instead of
-    // leaving it pinned to the top-left corner.
     const box = termHost.getBoundingClientRect()
     const padTop = Math.max(0, Math.round(((box.height || 0) - 16 - visR * scr.cellH) / 2))
     const padLeft = Math.max(0, Math.round(((box.width || 0) - 20 - visC * scr.cellW) / 2))
@@ -6446,8 +6367,6 @@ function initTerminalPanel() {
     window.electron?.terminalWrite?.(session.ipcId, text)
   }
 
-  // Full-screen apps read raw key bytes, so keys are forwarded as the escape
-  // sequences a real terminal would emit instead of being buffered until Enter.
   const ALT_KEY_NAMES = {
     Insert: '\x1b[2~', Delete: '\x1b[3~',
     PageUp: '\x1b[5~', PageDown: '\x1b[6~',
@@ -6458,9 +6377,6 @@ function initTerminalPanel() {
     ArrowUp: 'A', ArrowDown: 'B', ArrowRight: 'C', ArrowLeft: 'D',
     Home: 'H', End: 'F', Insert: '2~', Delete: '3~', PageUp: '5~', PageDown: '6~',
   }
-  // Real terminals switch cursor/Home/End to SS3 (\x1bOx) while the app holds
-  // DECCKM (?1h). Sending CSI bytes to such an app leaks a literal A/B/C/D/H/F
-  // into the app's text field, because it consumes only the lone ESC.
   const ALT_SS3 = { ArrowUp: 'A', ArrowDown: 'B', ArrowRight: 'C', ArrowLeft: 'D', Home: 'H', End: 'F' }
 
   const altKeyBytes = (e, session) => {
@@ -6510,8 +6426,6 @@ function initTerminalPanel() {
     return true
   }
 
-  // Mouse reporting: a full-screen app asks for it with DECSET ?1000/?1002/?1003
-  // (plus ?1006 for SGR-style coordinates). Without this, clicks are inert.
   const mouseReport = (session, e, kind, button) => {
     const scr = session.alt
     if (!scr || !scr.mouse.press || e.shiftKey) return false
@@ -6570,9 +6484,6 @@ function initTerminalPanel() {
     session.draft = ''
     if (/^(?:clear|cls)$/i.test(trimmed)) { clearScreen(session); renderInput(session); return }
     if (trimmed) session.echoes.push(cmd)
-    // Only the command itself is typed now. The status sentinel is written later,
-    // when the shell prints its next prompt (see maybeSendSentinel): typing it up
-    // front makes a full-screen app read it from stdin and insert it as user text.
     session.sentinelPending = looksComplete(cmd) && !!session.sentinel
     if (session.sentinelPending) {
       session.busy = true

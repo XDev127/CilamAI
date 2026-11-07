@@ -1,14 +1,3 @@
-// Windows pseudo-console (ConPTY) host for the integrated terminal.
-//
-// A piped PowerShell never looks like a terminal, so full-screen apps (opencode,
-// vim, top, less) fall back to 80x24 and cannot receive raw keys. This module
-// builds a PowerShell + C# shim that creates a ConPTY, launches the real shell
-// inside it, and copies bytes between the pty and its own (piped) stdio. The
-// pseudoconsole API and Add-Type both ship with Windows 10 1809+ and PowerShell,
-// so this adds no npm dependency and no native rebuild step.
-//
-// The host's stdin is forwarded verbatim to the pty, so a resize travels as a
-// whole-chunk text marker that the shim consumes instead of forwarding it.
 
 export const RESIZE_PREFIX = "::CLMARESIZE::";
 
@@ -95,8 +84,6 @@ public static class ClmaPty {
 }
 `;
 
-// PowerShell script that compiles the shim and runs the given command line
-// inside a pseudo-console of the requested size.
 export function hostScript(innerCommandLine, cols, rows) {
   const lines = [
     "$ErrorActionPreference = 'Stop'",
@@ -114,7 +101,6 @@ export function hostScript(innerCommandLine, cols, rows) {
   return lines.join("\r\n");
 }
 
-// Base64 UTF-16LE form for powershell.exe -EncodedCommand (no shell quoting).
 export function encodedHostScript(script) {
   return Buffer.from(script, "utf16le").toString("base64");
 }

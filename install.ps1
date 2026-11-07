@@ -34,8 +34,6 @@ $installerPath = Join-Path -Path $env:TEMP -ChildPath "CilamAI-Setup-$randomStr.
 Write-Host "[*] Downloading installer from GitHub..."
 
 Try {
-    # Use .NET's modern HTTP defaults (TLS 1.2+); older PowerShell defaults can
-    # get the connection closed by GitHub.
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     $request = [System.Net.WebRequest]::Create($downloadUrl)

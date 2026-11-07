@@ -360,7 +360,6 @@ html[data-theme='tokyo-night'] {
   --composer-bg: #1f2335;
 }
 
-/* OpenCode: neutral gray scale, warm orange primary, purple accents. */
 html[data-theme='opencode'] {
   --bg: #141414;
   --window-bg: #141414;
@@ -380,7 +379,6 @@ html[data-theme='opencode'] {
   --composer-bg: #181818;
 }
 
-/* Dev-only marker injected in the title bar by main.js when `npm run dev` is used. */
 .dev-badge {
   flex: 0 0 auto;
   display: inline-flex;
@@ -397,18 +395,15 @@ html[data-theme='opencode'] {
   letter-spacing: 0.08em;
   line-height: 1;
   user-select: none;
-  /* Must stay hoverable so the dev tooltip can show, and must not swallow window drag. */
   -webkit-app-region: no-drag;
   cursor: default;
   pointer-events: auto;
 }
 
-/* `display: inline-flex` above would otherwise beat the hidden attribute. */
 .dev-badge[hidden] {
   display: none;
 }
 
-/* OpenCode Light: warm neutral paper tones, burnt orange primary, purple focus. */
 html[data-theme='opencode-light'] {
   --bg: #f9f8f5;
   --window-bg: #eceae5;
@@ -428,7 +423,6 @@ html[data-theme='opencode-light'] {
   --composer-bg: #ffffff;
 }
 
-/* Vercel: pure black and white, hairline borders, Geist-style neutrality. */
 html[data-theme='vercel-dark'] {
   --bg: #000000;
   --window-bg: #000000;
@@ -531,7 +525,6 @@ body.sidebar-right.sidebar-collapsed {
   grid-template-columns: minmax(320px, 1fr) 0 56px 0;
 }
 
-/* Disabled sidebar: removed entirely, main takes the full width */
 body.sidebar-disabled {
   grid-template-columns: 0 0 minmax(0, 1fr) 0;
 }
@@ -563,9 +556,6 @@ body.panel-open:not(.sidebar-right) {
   grid-template-columns: var(--sidebar-width, 248px) 5px minmax(320px, 1fr) var(--panel-width, 420px);
 }
 
-/* The collapsed rail stays 56px wide, so it needs its own column while the
-   panel is open: otherwise the rule above re-widens column 1 to
-   --sidebar-width and an empty strip appears between the rail and the chat. */
 body.panel-open.sidebar-collapsed:not(.sidebar-right) {
   grid-template-columns: 56px 0 minmax(320px, 1fr) var(--panel-width, 420px);
 }
@@ -764,8 +754,6 @@ body.sidebar-right .panel-resize-handle {
   color: var(--accent);
 }
 
-/* The browser tab is app chrome, not terminal output: use the selected UI font
-   instead of the monospace stack inherited from .panel-body. */
 .panel-browser {
   font-family: var(--ui-font, system-ui, sans-serif);
 }
@@ -1102,9 +1090,6 @@ html[data-theme='github-light'] .panel-prompt {
   display: none;
 }
 
-/* Full-screen apps paint cell backgrounds across a whole row. Inline spans only
-   paint their font box, which leaves hairline gaps between rows, so each row is a
-   flex row and every run stretches to the full cell height. */
 .panel-alt .panel-line {
   display: flex;
   align-items: stretch;
@@ -1669,10 +1654,15 @@ html[data-theme='github-light'] .panel-prompt {
 }
 
 .titlebar {
-  position: fixed;
+  /* Keep the title bar in the grid's first row instead of floating it over the
+     page. A fixed bar can be offset when the window content itself is inset,
+     which leaves a strip of the window background above it. As a normal first
+     row it is always flush with the top edge of the window. */
+  position: relative;
   top: 0;
   left: 0;
   right: 0;
+  width: 100%;
   height: 40px;
   display: flex;
   align-items: center;
@@ -1778,6 +1768,11 @@ html[data-theme='github-light'] .panel-prompt {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 5px 6px;
+}
+
+.tb-menu-dropdown [data-update][hidden],
+.tb-menu-dropdown [data-update-sep][hidden] {
+  display: none !important;
 }
 
 .tb-menu-version {
@@ -2202,8 +2197,6 @@ body.sidebar-collapsed .sidebar-sessions {
 body.sidebar-collapsed .rail-btn.sidebar-item {
   justify-content: center;
   padding: 0;
-  /* Square hit/active box: the collapsed rail used to stretch the item to the full
-     column width, so the active pill was a wide 40x34 rectangle instead of a square. */
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
@@ -2214,8 +2207,6 @@ body.sidebar-collapsed .rail-btn.sidebar-item {
   flex: 0 0 auto;
 }
 
-/* Only the chrome is unselectable (sidebar, title bar, tabs, toolbars). Everything
-   else - chat text, code, settings, terminal - selects normally again. */
 .icon-rail,
 .sidebar-footer,
 .sidebar-account,
@@ -2314,7 +2305,6 @@ body.sidebar-right.sidebar-collapsed .main {
   border-top: 1px solid var(--border);
 }
 
-/* Account row carries the settings shortcut on its trailing edge. */
 .sidebar-account-row {
   display: flex;
   align-items: center;
@@ -2592,8 +2582,6 @@ body.sidebar-collapsed .sidebar-account {
 
 .scroll-bottom-btn {
   position: absolute;
-  /* Parked above the composer (its height is measured into --scroll-btn-offset) and
-     inside the chat column's right edge instead of the window corner. */
   bottom: var(--scroll-btn-offset, 118px);
   right: max(14px, calc(50% - 348px));
   width: 36px;
@@ -2768,8 +2756,6 @@ body.sidebar-collapsed .sidebar-account {
     font-size: 24px;
   }
 }
-
-
 
 .main.has-chat .welcome-mark {
   display: none;
@@ -3064,7 +3050,6 @@ html[data-theme='light'] .bubble-error-icon {
   padding: 8px;
 }
 
-/* Message images: never wider than the bubble, never taller than the viewport. */
 .chat-bubble img {
   display: block;
   max-width: 100%;
@@ -3076,7 +3061,6 @@ html[data-theme='light'] .bubble-error-icon {
   object-fit: contain;
 }
 
-/* Empty/broken sources must not paint a white slab in a dark bubble. */
 .chat-bubble img:not([src]),
 .chat-bubble img[src=''] {
   display: none;
@@ -3440,7 +3424,6 @@ body.shimmer-enabled .theme-card:has(input:checked) > * {
   to { --shimmer-angle: 360deg; }
 }
 
-/* The Shimmer Effect setting governs every shimmer, not only the theme card ring. */
 body:not(.shimmer-enabled) .loading-shimmer-text,
 body:not(.shimmer-enabled) .loading-shimmer-text::after,
 body:not(.shimmer-enabled) .startup-skel::after {
@@ -3814,7 +3797,6 @@ html[data-theme='light'] .file-chip-remove {
   border-radius: 50%;
 }
 
-/* Round inner mark so the stop state reads as "square in a circle", like the send arrow. */
 .composer-btn.stop > svg {
   width: 12px;
   height: 12px;
@@ -4340,7 +4322,6 @@ html[data-theme='light'] .setting-danger-btn {
   width: 100%;
 }
 
-/* Current theme summary card (General) matching reference screenshot */
 .theme-current-card {
   border: 0;
   border-radius: 12px;
@@ -4354,7 +4335,6 @@ html[data-theme='light'] .setting-danger-btn {
   padding: 14px 18px;
 }
 
-/* Miniature of the window, drawn in SVG from the live theme tokens. */
 .theme-current-thumb {
   --tp-window: var(--bg);
   --tp-sidebar: var(--sidebar-bg);
@@ -4378,7 +4358,6 @@ html[data-theme='light'] .setting-danger-btn {
   height: 100%;
 }
 
-/* Real window capture replaces the drawn mock as soon as one is available. */
 .theme-current-shot {
   display: block;
   width: 100%;
@@ -5309,8 +5288,6 @@ html[data-theme='light'] .setting-danger-btn {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 18px;
-  /* Text-only dialog now that the version list is gone — keep it small and
-     compact with narrow left/right edges so there is no dead space. */
   width: min(560px, 94vw);
   height: min(80vh, 680px);
   display: flex;
@@ -5334,7 +5311,6 @@ html[data-theme='light'] .setting-danger-btn {
   color: var(--text-dim);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
-  /* Above the full-width title bar so the button stays visible and clickable. */
   z-index: 2;
 }
 
@@ -5343,8 +5319,6 @@ html[data-theme='light'] .setting-danger-btn {
   color: var(--text);
 }
 
-/* Full-width dialog header bar: the content scrolls beneath it and can never
-   bleed through the title. */
 .release-title {
   position: absolute;
   top: 0;
@@ -5370,7 +5344,6 @@ html[data-theme='light'] .setting-danger-btn {
   display: none;
   flex: 1;
   min-height: 0;
-  /* Keeps the content clear of the 48px header bar. */
   padding-top: 26px;
 }
 
@@ -5481,8 +5454,6 @@ html[data-theme='light'] .setting-danger-btn {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  /* The layout row is align-items: flex-start — stretch this column to the
-     constrained row height so overflow-y:auto actually has a bound to scroll. */
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -5490,12 +5461,9 @@ html[data-theme='light'] .setting-danger-btn {
   overflow-wrap: break-word;
   word-wrap: break-word;
   overflow-y: auto;
-  /* Fill the dialog width; the small side gaps come from the dialog padding. */
   width: 100%;
 }
 
-/* Small/narrow windows: single column, date list becomes a wrapping row of
-   pills so the changelog keeps a readable width down to the 460px app minimum. */
 @media (max-width: 900px) {
   .release-notes-dialog {
     padding: 14px;
@@ -5551,14 +5519,12 @@ html[data-theme='light'] .setting-danger-btn {
   color: var(--text-dim);
 }
 
-/* What's New style: small uppercase category labels above plain paragraphs. */
 .release-section h4 {
   font-size: 12.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text);
-  /* Sections stack inside one release, so headings need air above them. */
   margin: 22px 0 6px;
 }
 
@@ -5575,13 +5541,11 @@ html[data-theme='light'] .setting-danger-btn {
   overflow-wrap: break-word;
 }
 
-/* Inline "New:" / "Added:" / "Fixed:" tags at the start of a change entry. */
 .release-para strong {
   color: var(--text);
   font-weight: 600;
 }
 
-/* Versions stack in one scroll — separate them like the reference dialog. */
 .release-section + .release-section {
   border-top: 1px solid var(--border);
   padding-top: 28px;
@@ -5672,7 +5636,6 @@ html[data-theme='light'] .setting-danger-btn {
   text-decoration: underline;
 }
 
-/* About dialog */
 .about-overlay {
   position: fixed;
   inset: 0;
@@ -6788,8 +6751,6 @@ pre:hover .copy-code-btn {
   pointer-events: none;
 }
 
-/* Sidebar skeleton: mirrors the real rail (buttons, sessions, account row) so the
-   splash cross-fades into the loaded layout instead of popping in. */
 .startup-skeleton {
   position: absolute;
   top: 0;
@@ -6887,8 +6848,6 @@ body.sidebar-right .startup-skeleton {
   .startup-skel::after { animation: none; }
 }
 
-/* Titlebar placeholders: the splash hides the real More / Search / Toggle sidebar
-   buttons, so their slots stay visible as skeleton pills. */
 .tb-skel-group,
 .tb-skel {
   display: none;
@@ -6904,13 +6863,10 @@ body:has(.startup-loading:not(.fade-out)) .tb-skel {
   display: block;
 }
 
-/* The skeleton pills stand in for the real controls while the splash is up —
-   hide the real glyphs (kept in layout) so nothing is drawn twice. */
 body:has(.startup-loading:not(.fade-out)) [data-more-toggle],
 body:has(.startup-loading:not(.fade-out)) [data-command-palette-toggle],
 body:has(.startup-loading:not(.fade-out)) [data-sidebar-toggle],
-body:has(.startup-loading:not(.fade-out)) [data-panel-toggle],
-body:has(.startup-loading:not(.fade-out)) [data-update] {
+body:has(.startup-loading:not(.fade-out)) [data-panel-toggle] {
   visibility: hidden;
 }
 
@@ -6928,9 +6884,6 @@ body:has(.startup-loading:not(.fade-out)) [data-update] {
   animation-delay: -0.5s;
 }
 
-/* Update pill: hidden until the release API reports a newer version, then
-   slides in as the blue "Update ↓" pill. Collapses to a circular arrow on
-   narrow windows. */
 .tb-update {
   display: inline-flex;
   align-items: center;
@@ -6941,8 +6894,9 @@ body:has(.startup-loading:not(.fade-out)) [data-update] {
   padding: 0 10px;
   border: 0;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.16);
-  color: #3b6fe0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -6960,7 +6914,6 @@ body:has(.startup-loading:not(.fade-out)) [data-update] {
   color: #2f5fd0;
 }
 
-/* Slides in when the check finds a newer version. */
 .tb-update.has-update {
   animation: tb-update-in 0.2s ease;
 }
@@ -6988,11 +6941,6 @@ body:has(.startup-loading:not(.fade-out)) [data-update] {
   }
 }
 
-/* Keep the titlebar clean while the splash covers the app. */
-body:has(.startup-loading:not(.fade-out)) .tb-update {
-  display: none !important;
-}
-
 .tb-skel-toggle {
   flex: 0 0 auto;
   align-self: center;
@@ -7006,7 +6954,6 @@ body:has(.startup-loading:not(.fade-out)) .tb-update {
   animation-delay: -0.3s;
 }
 
-/* Page placeholders mirroring .main's welcome layout. */
 .startup-page {
   position: absolute;
   top: 0;
@@ -7024,14 +6971,12 @@ body:has(.startup-loading:not(.fade-out)) .tb-update {
 }
 
 .startup-skel-mark {
-  /* Mirrors .welcome-mark: one centered line of 30px text */
   width: min(460px, 70%);
   height: 30px;
   border-radius: 8px;
 }
 
 .startup-composer {
-  /* Mirrors .composer on the welcome screen */
   box-sizing: border-box;
   width: min(640px, 90%);
   display: flex;
@@ -7058,7 +7003,6 @@ body:has(.startup-loading:not(.fade-out)) .tb-update {
 }
 
 .startup-skel-chip {
-  /* Model picker pill ("GPT-OSS 120B") */
   width: 150px;
   height: 30px;
   border-radius: 15px;
@@ -7538,11 +7482,9 @@ html[data-theme='light'] .model-select-btn:hover {
   max-height: min(58vh, 420px);
   overflow-y: auto;
   padding: 6px;
-  /* Native bars stay hidden; the panel draws its own modern UI-kit scrollbar. */
   scrollbar-width: none;
 }
 
-/* Custom UI-kit scrollbar: slim rounded rail + thumb over the list edge. */
 .cmd-scroll-rail {
   position: absolute;
   right: 6px;
@@ -7747,7 +7689,6 @@ html[data-theme='light'] .model-select-btn:hover {
   font-size: 12px;
 }
 
-/* Settings dialog */
 .settings-view {
   position: fixed;
   inset: 0;
@@ -7831,7 +7772,6 @@ html[data-theme='light'] .model-select-btn:hover {
   padding: 4px 8px 12px;
 }
 
-/* Search match highlighted inside a page label */
 .settings-match {
   color: var(--accent);
   font-weight: 600;
@@ -7926,7 +7866,6 @@ html[data-theme='light'] .model-select-btn:hover {
   display: none !important;
 }
 
-/* Search mode: several panes are stacked in the body — separate them. */
 .settings-body .settings-pane + .settings-pane {
   margin-top: 24px;
   padding-top: 24px;
@@ -7964,10 +7903,6 @@ html[data-theme='light'] .model-select-btn:hover {
   background: transparent;
 }
 
-/* Settings > General > Reduce motion.
-   'on' forces the reduced-motion treatment even when the OS allows animation;
-   'system' defers to the prefers-reduced-motion media queries above; 'off' adds
-   nothing, so the app never animates against the system preference. */
 html[data-reduce-motion='on'] *,
 html[data-reduce-motion='on'] *::before,
 html[data-reduce-motion='on'] *::after {
@@ -7983,8 +7918,6 @@ html[data-reduce-motion='on'] .startup-skel::after {
   animation: none !important;
 }
 
-/* Settings > General > Animations: master switch for every animation and
-   transition in the app, independent of the Reduce motion preference. */
 html[data-animations='off'] *,
 html[data-animations='off'] *::before,
 html[data-animations='off'] *::after {
@@ -7993,7 +7926,6 @@ html[data-animations='off'] *::after {
   scroll-behavior: auto !important;
 }
 
-/* Infinite decorative loops must stop outright, not just run once. */
 html[data-reduce-motion='on'] .loading-shimmer-text,
 html[data-reduce-motion='on'] .type-caret,
 html[data-reduce-motion='on'] .thinking.active,
