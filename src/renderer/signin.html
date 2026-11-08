@@ -7,47 +7,81 @@
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #171717;
-      --text: #ffffff;
-      --text-dim: #acacac;
-      --border: #424242;
-      --btn-bg: #f5f5f5;
-      --btn-border: #d0d0d0;
-      --btn-hover: #e8e8e8;
+      --bg: #0d0d0d;
+      --surface: #171717;
+      --surface-2: #2f2f2f;
+      --border: #2d2d2d;
+      --text: #ececec;
+      --text-dim: #8a8a8a;
+      --accent: #f0f0f0;
+      --accent-text: #111111;
+      --hover: #2a2a2a;
+      --radius: 12px;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html[data-theme='light'] {
+      --bg: #f7f7f7;
+      --surface: #e4e4e4;
+      --surface-2: #d5d5d5;
+      --border: #d9d9d9;
+      --text: #1a1a1a;
+      --text-dim: #6b6b6b;
+      --accent: #1a1a1a;
+      --accent-text: #ffffff;
+      --hover: #d8d8d8;
+    }
+
+    html[data-theme='blue'] { --bg: #0d1524; --surface: #16233c; --surface-2: #223252; --border: #2a3d61; --text: #e8edf7; --text-dim: #8fa3c4; --accent: #4d9fff; --accent-text: #ffffff; --hover: #2e4570; }
+    html[data-theme='red'] { --bg: #1c0d0d; --surface: #331616; --surface-2: #4a2020; --border: #5c2b2b; --text: #f7e8e8; --text-dim: #c48f8f; --accent: #ff5a5a; --accent-text: #ffffff; --hover: #5c2626; }
+    html[data-theme='yellow'] { --bg: #171407; --surface: #2b250e; --surface-2: #3f3618; --border: #52471f; --text: #f7f0d8; --text-dim: #c4b48a; --accent: #f5c518; --accent-text: #1a1400; --hover: #453a1a; }
+    html[data-theme='green'] { --bg: #0c1710; --surface: #12261a; --surface-2: #1a3524; --border: #24402c; --text: #e6f5ea; --text-dim: #93b8a0; --accent: #3ddc84; --accent-text: #0a120c; --hover: #1e422b; }
+    html[data-theme='black'] { --bg: #000000; --surface: #0d0d0d; --surface-2: #1a1a1a; --border: #262626; --text: #f2f2f2; --text-dim: #7a7a7a; --accent: #f0f0f0; --accent-text: #000000; --hover: #242424; }
+    html[data-theme='github-dark'] { --bg: #0d1117; --surface: #151b23; --surface-2: #212830; --border: #3d444d; --text: #f0f6fc; --text-dim: #9198a1; --accent: #1f6feb; --accent-text: #ffffff; --hover: #212830; }
+    html[data-theme='github-light'] { --bg: #ffffff; --surface: #ffffff; --surface-2: #eaeef2; --border: #d0d7de; --text: #1f2328; --text-dim: #59636e; --accent: #0969da; --accent-text: #ffffff; --hover: #e7ecf2; }
+    html[data-theme='fox'] { --bg: #2b1a16; --surface: #3c231c; --surface-2: #4e2f25; --border: #5c3a2e; --text: #f5e4dc; --text-dim: #c7a294; --accent: #e0632f; --accent-text: #ffffff; --hover: #4a2b21; }
+    html[data-theme='ic-orange-ppl'] { --bg: #1c130a; --surface: #2a1d10; --surface-2: #3d2a17; --border: #4a3520; --text: #f2e7d5; --text-dim: #b39a78; --accent: #ff8700; --accent-text: #1c130a; --hover: #372715; }
+    html[data-theme='monochrome'] { --bg: #141419; --surface: #1e1e26; --surface-2: #2a2a34; --border: #34343e; --text: #e9e9ee; --text-dim: #8f8f9c; --accent: #dfdfe6; --accent-text: #141419; --hover: #26262f; }
+    html[data-theme='noctis'] { --bg: #052733; --surface: #093645; --surface-2: #0f4558; --border: #155066; --text: #d8eff6; --text-dim: #7fb2c6; --accent: #4990a5; --accent-text: #ffffff; --hover: #0d4254; }
+    html[data-theme='notionish'] { --bg: #1c1c1c; --surface: #262626; --surface-2: #333333; --border: #3a3a3a; --text: #f1f1f1; --text-dim: #9b9b9b; --accent: #e3e3e3; --accent-text: #1c1c1c; --hover: #2e2e2e; }
+    html[data-theme='polychrome'] { --bg: #2a2438; --surface: #342c46; --surface-2: #43395c; --border: #4f4468; --text: #efeaf7; --text-dim: #a79cc0; --accent: #f2a65a; --accent-text: #241f31; --hover: #3d3454; }
+    html[data-theme='selene'] { --bg: #122225; --surface: #1a2e32; --surface-2: #244045; --border: #2c4d53; --text: #e6e3db; --text-dim: #93aaa8; --accent: #55b6a6; --accent-text: #102226; --hover: #20383d; }
+    html[data-theme='tokyo-night'] { --bg: #1a1b26; --surface: #24283b; --surface-2: #2f334d; --border: #3b4261; --text: #c0caf5; --text-dim: #787fa0; --accent: #7aa2f7; --accent-text: #16161e; --hover: #292e42; }
+    html[data-theme='opencode'] { --bg: #141414; --surface: #1c1c1c; --surface-2: #262626; --border: #2e2e2e; --text: #e8e8e8; --text-dim: #9a9a9a; --accent: #f2874a; --accent-text: #17110b; --hover: #1f1f1f; }
+    html[data-theme='opencode-light'] { --bg: #f9f8f5; --surface: #ffffff; --surface-2: #f1efea; --border: #dcd9d1; --text: #1f1e1c; --text-dim: #6b6862; --accent: #c2410c; --accent-text: #ffffff; --hover: #eae7e1; }
+    html[data-theme='vercel-dark'] { --bg: #000000; --surface: #111111; --surface-2: #1a1a1a; --border: #333333; --text: #ededed; --text-dim: #888888; --accent: #ffffff; --accent-text: #000000; --hover: #1f1f1f; }
+    html[data-theme='vercel-light'] { --bg: #ffffff; --surface: #ffffff; --surface-2: #f2f2f2; --border: #eaeaea; --text: #000000; --text-dim: #666666; --accent: #000000; --accent-text: #ffffff; --hover: #f2f2f2; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+    }
 
     body {
-      font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-      background-color: #171717;
-      color: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       user-select: none;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
-    body::before {
-      content: '';
-      position: fixed;
-      top: -20px;
-      left: -20px;
-      right: -20px;
-      bottom: -20px;
-      background-image: url('https://file.garden/aPSLaf7myCkWreuK/blurred-shiny-light-background.jpg');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      filter: brightness(0.3);
-      z-index: -1;
-    }
-
+    /* Electron custom frameless titlebar */
     .titlebar {
-      height: 32px;
+      height: 36px;
       width: 100%;
       display: flex;
       align-items: center;
@@ -60,17 +94,17 @@
       right: 0;
       z-index: 1000;
       background: transparent;
-      -webkit-font-smoothing: antialiased;
     }
 
     .titlebar-left {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-left: 12px;
+      padding-left: 14px;
       font-size: 12px;
-
+      font-weight: 500;
       color: var(--text-dim);
+      opacity: 0.8;
     }
 
     .titlebar-right {
@@ -81,7 +115,7 @@
     }
 
     .close-btn {
-      width: 46px;
+      width: 44px;
       height: 100%;
       display: flex;
       align-items: center;
@@ -94,40 +128,35 @@
     }
 
     .close-btn:hover {
-      background: #c42b1c;
-      color: #ffffff;
+      background: var(--hover);
+      color: var(--text);
     }
 
+    /* Main container layout */
     .content {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 48px 28px;
-      gap: 20px;
+      padding: 36px 24px 28px;
+      width: 100%;
+      max-width: 360px;
+      margin: 0 auto;
     }
 
-    .content .title {
-      animation: fadeInUp 0.5s ease-out both;
+    .auth-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: fadeIn 0.4s ease-out both;
     }
 
-    .content .providers .provider-btn:nth-child(1) {
-      animation: fadeInUp 0.5s ease-out 0.1s both;
-    }
-
-    .content .providers .provider-btn:nth-child(2) {
-      animation: fadeInUp 0.5s ease-out 0.2s both;
-    }
-
-    .content .signup-link {
-      animation: fadeInUp 0.5s ease-out 0.3s both;
-    }
-
-    @keyframes fadeInUp {
+    @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(10px);
       }
       to {
         opacity: 1;
@@ -135,142 +164,217 @@
       }
     }
 
-    .logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
-      opacity: 0.9;
-    }
-
-    .title {
-      font-size: 26px;
-
-      letter-spacing: -0.02em;
-      color: #ffffff;
-      margin: 0;
-    }
-
-    .providers {
+    .btn-group {
       display: flex;
       flex-direction: column;
-      gap: 10px;
       width: 100%;
-      max-width: 320px;
-      margin-top: 8px;
     }
 
-    .provider-btn {
+    /* Button: Continue with Github */
+    .btn-github {
+      width: 100%;
+      height: 52px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 14px 16px;
-      border-radius: 28px;
-      font-size: 14px;
-
+      gap: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      border: none;
+      transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      outline: none;
     }
 
-    .provider-primary {
-      background: #ffffff;
-      border: 1px solid #ffffff;
-      color: #171717;
+    .btn-github:hover {
+      background: var(--hover);
     }
 
-    .provider-primary:hover {
-      background: #e8e8e8;
-      border-color: #e8e8e8;
+    .btn-github:active {
+      transform: translateY(0);
     }
 
-    .provider-outline {
-      background: #ffffff;
-      border: 1px solid #ffffff;
-      color: #171717;
+    .btn-github svg {
+      flex-shrink: 0;
     }
 
-    .provider-outline:hover {
-      background: #e8e8e8;
-      border-color: #e8e8e8;
+    /* Button: Continue with Google */
+    .btn-google {
+      width: 100%;
+      height: 52px;
+      margin-bottom: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      outline: none;
     }
 
-    .signup-link {
-      margin-top: 16px;
+    .btn-google:hover {
+      background: var(--hover);
+    }
+
+    .btn-google:active {
+      transform: translateY(0);
+    }
+
+    .btn-google svg {
+      flex-shrink: 0;
+    }
+
+    /* Sign-in error message */
+    .signin-error {
+      margin-top: 18px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      background: rgba(229, 72, 77, 0.12);
+      border: 1px solid rgba(229, 72, 77, 0.35);
+      color: #e5484d;
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    /* Divider: OR */
+    .divider {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      margin: 22px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Button: Continue with Email */
+    .btn-email {
+      width: 100%;
+      height: 52px;
+      background: var(--accent);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--accent-text);
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      outline: none;
+    }
+
+    .btn-email:hover {
+      background: color-mix(in srgb, var(--accent) 88%, #000);
+    }
+
+    .btn-email:active {
+      transform: translateY(0);
+    }
+
+    /* Footer / Bottom text */
+    .footer-text {
+      margin-top: 38px;
       font-size: 14px;
+      color: var(--text);
+      text-align: center;
+      line-height: 1.4;
+    }
 
-      color: #888888;
+    .login-link {
+      color: var(--accent);
+      font-weight: 600;
       text-decoration: none;
+      border-bottom: 1.5px dotted var(--accent);
+      padding-bottom: 1px;
       cursor: pointer;
-      transition: color 0.15s ease;
+      transition: opacity 0.15s ease;
     }
 
-    .signup-link:hover {
-      color: #ffffff;
+    .login-link:hover {
+      opacity: 0.8;
     }
 
-    .waiting { display: none; }
-    .waiting.active { display: flex; }
-    .waiting-text { font-size: 15px; color: #acacac; margin-bottom: 16px; }
+    /* Waiting panel for browser sign-in */
+    .waiting {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 16px;
+      animation: fadeIn 0.3s ease-out both;
+    }
 
-    .startup-loading {
-      position: fixed;
-      top: 32px;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      background: #171717;
-      z-index: 300;
-      display: grid;
-      place-items: center;
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      transition: opacity 0.4s ease;
+    .waiting.active {
+      display: flex;
     }
-    .startup-loading.fade-out {
-      opacity: 0;
-      pointer-events: none;
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
-    .md-spinner {
-      transform-origin: center;
-      animation: md-spinner-rotate 1.5s linear infinite;
+
+    .waiting-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      margin-top: 4px;
     }
-    .md-spinner circle {
-      fill: none;
-      stroke-width: 4;
+
+    .waiting-subtext {
+      font-size: 13px;
+      color: var(--text-dim);
     }
-    .md-spinner-track {
-      stroke: rgba(255, 255, 255, 0.15);
+
+    .btn-cancel {
+      margin-top: 12px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
     }
-    .md-spinner-indeterminate {
-      stroke: #e0e0e0;
-      stroke-linecap: round;
-      stroke-dasharray: 90 150;
-      animation: md-spinner-dash 1.5s ease-in-out infinite;
-    }
-    @keyframes md-spinner-rotate {
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes md-spinner-dash {
-      0% { stroke-dasharray: 1 200; stroke-dashoffset: 0; }
-      50% { stroke-dasharray: 100 200; stroke-dashoffset: -15; }
-      100% { stroke-dasharray: 100 200; stroke-dashoffset: -120; }
+
+    .btn-cancel:hover {
+      background: var(--hover);
+      color: var(--text);
     }
   </style>
 </head>
 <body>
-  <div class="startup-loading" id="startup-loading">
-    <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-      <svg class="md-spinner" viewBox="0 0 24 24" width="48" height="48" style="color: #acacac;">
-        <path fill="currentColor" d="M12 2C12 7.52 16.48 12 22 12C16.48 12 12 16.48 12 22C12 16.48 7.52 12 2 12C7.52 12 12 7.52 12 2Z"/>
-      </svg>
-    </div>
-
-  </div>
-
   <div class="titlebar">
     <div class="titlebar-left">
       <img src="./favicon.ico" width="14" height="14" alt="" />
@@ -287,52 +391,66 @@
   </div>
 
   <div class="content" id="signin-panel">
-    <h1 class="title">Sign in to CilamAI</h1>
+    <div class="auth-container">
+      <div class="btn-group">
+        <!-- Continue with Google -->
+        <button type="button" class="btn-google" id="google-btn">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
 
-    <div class="providers">
-      <button type="button" class="provider-btn provider-primary" id="google-btn">
-        <svg viewBox="0 0 48 48" width="18" height="18">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          <path fill="none" d="M0 0h48v48H0z"/>
-        </svg>
-        <span>Continue to sign in</span>
-      </button>
-      <button type="button" class="provider-btn provider-outline" id="github-btn">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="#171717">
-          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-        </svg>
-     <span>Continue with GitHub</span>
-      </button>
+        <!-- Continue with Github -->
+        <button type="button" class="btn-github" id="github-btn">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Continue with Github</span>
+        </button>
+
+        <!-- Divider -->
+        <div class="divider">
+          <span>OR</span>
+        </div>
+
+        <!-- Continue with Email -->
+        <button type="button" class="btn-email" id="email-btn">
+          <span>Continue with Email</span>
+        </button>
+      </div>
+
+      <!-- Sign-in error -->
+      <div class="signin-error" id="signin-error" hidden></div>
+
+      <!-- Footer -->
+      <div class="footer-text">
+        Already have an account? <a href="#" class="login-link" id="login-link">Log in</a>
+      </div>
     </div>
-    <a href="#" class="signup-link" id="signup-btn" title="Sign up">Sign up</a>
   </div>
 
   <div class="content waiting" id="waiting-panel">
-    <svg viewBox="0 0 48 48" width="48" height="48" style="margin-bottom: 4px;">
-      <path fill="#ffffff" d="M24 2L28.5 19.5L46 24L28.5 28.5L24 46L19.5 28.5L2 24L19.5 19.5Z"/>
-    </svg>
     <p class="waiting-text">Continue signing in with your browser</p>
-    <div class="providers">
-      <button type="button" class="provider-btn provider-outline" id="cancel-signin-btn">Cancel sign-in</button>
-    </div>
+    <p class="waiting-subtext">Complete authentication in the opened window</p>
+    <button type="button" class="btn-cancel" id="cancel-signin-btn">Cancel</button>
   </div>
 
   <script type="module">
-    const startupEl = document.getElementById('startup-loading')
-
     const MAIN_APP = './index.html'
 
     function goToApp() {
       window.location.href = MAIN_APP
     }
 
-    function hideStartup() {
-      if (startupEl && !startupEl.classList.contains('fade-out')) {
-        startupEl.classList.add('fade-out')
-      }
+    const signinErrorEl = document.getElementById('signin-error')
+    const showSigninError = (msg) => {
+      if (!signinErrorEl) return
+      signinErrorEl.textContent = msg || 'Sign-in failed. Please try again.'
+      signinErrorEl.hidden = false
     }
 
     async function waitForElectron(timeout = 4000) {
@@ -343,10 +461,22 @@
       return !!window.electron
     }
 
+    const applyTheme = (theme) => {
+      const resolved = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme
+      document.documentElement.dataset.theme = resolved
+    }
+
     const electronReady = await waitForElectron()
 
-    if (!electronReady) {
-      hideStartup()
+    if (electronReady) {
+      window.electron?.onThemeChange?.(applyTheme)
+      window.electron?.getTheme?.().then((res) => {
+        if (res?.theme) applyTheme(res.theme)
+      })
+    } else {
+      applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     }
 
     async function checkExistingUser() {
@@ -361,11 +491,8 @@
     }
 
     if (electronReady && await checkExistingUser()) {
-      hideStartup()
       goToApp()
     } else {
-      hideStartup()
-
       const signinPanel = document.getElementById('signin-panel')
       const waitingPanel = document.getElementById('waiting-panel')
 
@@ -373,15 +500,30 @@
         window.electron?.closeWindow?.() || window.close()
       })
 
-      document.querySelector('#signup-btn')?.addEventListener('click', (e) => {
+      document.querySelector('#login-link')?.addEventListener('click', (e) => {
         e.preventDefault()
         document.querySelector('#github-btn')?.click()
       })
 
-      document.querySelector('#skip-btn')?.addEventListener('click', () => {
-        goToApp()
+      // Continue with Email (Google / Email OAuth)
+      document.querySelector('#email-btn')?.addEventListener('click', async () => {
+        if (window.electron?.signIn) {
+          signinPanel.style.display = 'none'
+          waitingPanel.classList.add('active')
+          const result = await window.electron.signIn('google')
+          if (result?.ok && result.user) {
+            localStorage.setItem('cilamai-user', JSON.stringify(result.user))
+            window.electron?.setUser?.(result.user)
+            goToApp()
+          } else {
+            waitingPanel.classList.remove('active')
+            signinPanel.style.display = ''
+            showSigninError(result?.error)
+          }
+        }
       })
 
+      // Continue with Google
       document.querySelector('#google-btn')?.addEventListener('click', async () => {
         if (window.electron?.signIn) {
           signinPanel.style.display = 'none'
@@ -394,10 +536,12 @@
           } else {
             waitingPanel.classList.remove('active')
             signinPanel.style.display = ''
+            showSigninError(result?.error)
           }
         }
       })
 
+      // Continue with Github
       document.querySelector('#github-btn')?.addEventListener('click', async () => {
         if (window.electron?.signIn) {
           signinPanel.style.display = 'none'
@@ -410,6 +554,7 @@
           } else {
             waitingPanel.classList.remove('active')
             signinPanel.style.display = ''
+            showSigninError(result?.error)
           }
         }
       })

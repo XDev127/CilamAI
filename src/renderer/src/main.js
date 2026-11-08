@@ -51,7 +51,6 @@ const HOTKEY_ACTIONS = {
     labelKey: 'hotkeyClearChat',
     run: () => {
       resetChat()
-      showNotification(tf('conversationCleared', 'Conversation cleared'), 'warning')
     }
   },
   toggleThinking: {
@@ -60,7 +59,6 @@ const HOTKEY_ACTIONS = {
       showThinking = !showThinking
       settings.showThinking = showThinking
       localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      showNotification(showThinking ? 'Thinking shown' : 'Thinking hidden', 'warning')
     }
   },
   send: {
@@ -136,14 +134,110 @@ let showThinking = settings.showThinking !== false
 let theme = settings.theme || 'system'
 let resolvedTheme = theme
 
-let recognition = null
+let mediaRecorder = null
+let micStream = null
+let micChunks = []
+let micAutoStop = null
+let micAbort = false
 let recognizing = false
-const stopRecognition = () => {
-  if (recognition && recognizing) {
-    try { recognition.stop() } catch {}
+let transcribing = false
+let micAudioCtx = null
+let micAnalyser = null
+let micWaveRaf = null
+let micStartTs = 0
+
+const voiceBar = () => document.querySelector('.voice-recorder')
+const voiceWave = () => document.querySelector('.vr-canvas')
+const voiceTimer = () => document.querySelector('.vr-timer')
+
+const formatVoiceTime = (ms) => {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+const drawVoiceWave = () => {
+  const canvas = voiceWave()
+  if (canvas) {
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width
+    const h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+    const color = (getComputedStyle(voiceBar() || document.documentElement).getPropertyValue('--voice-wave') || '#8b949e').trim()
+    if (micAnalyser) {
+      const buf = new Uint8Array(micAnalyser.fftSize)
+      micAnalyser.getByteTimeDomainData(buf)
+      const bars = 48
+      const step = Math.max(1, Math.floor(buf.length / bars))
+      const mid = h / 2
+      ctx.fillStyle = color
+      for (let i = 0; i < bars; i++) {
+        const v = buf[Math.min(buf.length - 1, i * step)]
+        const amp = Math.abs(v - 128) / 128
+        const bh = Math.max(2, amp * h * 0.85)
+        const x = (i + 0.5) * (w / bars)
+        ctx.fillRect(x - 1, mid - bh / 2, 2, bh)
+      }
+    } else {
+      ctx.globalAlpha = 0.5
+      ctx.fillStyle = color
+      ctx.fillRect(0, h / 2 - 0.5, w, 1)
+      ctx.globalAlpha = 1
+    }
   }
+  if (voiceTimer() && micStartTs) voiceTimer().textContent = formatVoiceTime(Date.now() - micStartTs)
+  micWaveRaf = requestAnimationFrame(drawVoiceWave)
+}
+
+const startVoiceUI = () => {
+  const bar = voiceBar()
+  const canvas = voiceWave()
+  if (bar) bar.hidden = false
+  if (voiceTimer()) voiceTimer().textContent = '0:00'
+  if (canvas) {
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+  micStartTs = Date.now()
+  if (!micWaveRaf) micWaveRaf = requestAnimationFrame(drawVoiceWave)
+}
+
+const stopVoiceUI = () => {
+  if (micWaveRaf) {
+    cancelAnimationFrame(micWaveRaf)
+    micWaveRaf = null
+  }
+  if (micAudioCtx) {
+    micAudioCtx.close().catch(() => {})
+    micAudioCtx = null
+  }
+  micAnalyser = null
+  micStartTs = 0
+  const bar = voiceBar()
+  if (bar) bar.hidden = true
+}
+
+const resetMicUI = () => {
   recognizing = false
-  document.querySelector('[data-mic-toggle]')?.classList.remove('listening')
+  clearTimeout(micAutoStop)
+  micAutoStop = null
+  document.querySelector('[data-mic-toggle]')?.classList.remove('listening', 'transcribing')
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop())
+    micStream = null
+  }
+  mediaRecorder = null
+  micChunks = []
+  stopVoiceUI()
+}
+const stopRecognition = () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    micAbort = true
+    try { mediaRecorder.stop() } catch {}
+    return
+  }
+  resetMicUI()
 }
 const applyTheme = (skipIpc = false) => {
   resolvedTheme = theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
@@ -174,7 +268,9 @@ const THEME_LABELS = {
   opencode: 'OpenCode',
   'opencode-light': 'OpenCode Light',
   'vercel-dark': 'Vercel Dark',
-  'vercel-light': 'Vercel Light'
+  'vercel-light': 'Vercel Light',
+  'kilo-dark': 'Kilo Dark',
+  'kilo-light': 'Kilo Light'
 }
 const CURRENT_THEME_SWATCHES = ['--accent', '--composer-bg', '--surface-2', '--sidebar-bg', '--bg']
 const syncCurrentThemeCard = () => {
@@ -244,7 +340,7 @@ const syncThemeControls = () => {
   document.querySelectorAll('input[name="theme"]').forEach((radio) => {
     radio.checked = radio.value === theme
   })
-  const lightModeThemes = new Set(['light', 'github-light', 'opencode-light', 'vercel-light'])
+  const lightModeThemes = new Set(['light', 'github-light', 'opencode-light', 'vercel-light', 'kilo-light'])
   const mode = theme === 'system' ? 'system' : (lightModeThemes.has(theme) ? 'light' : 'dark')
   const label = document.querySelector('#theme-mode-label')
   if (label) label.textContent = mode[0].toUpperCase() + mode.slice(1)
@@ -356,7 +452,7 @@ const applyReduceMotion = () => {
 }
 applyReduceMotion()
 window.electron?.setZoomFactor?.(1)
-const MIN_SPLASH_MS = 2000
+const MIN_SPLASH_MS = 3000
 const splashStartedAt = performance.now()
 if (import.meta.env?.DEV) {
   const devBadge = document.querySelector('[data-dev-badge]')
@@ -593,6 +689,11 @@ const sessionTitle = (session) => {
 }
 
 let stickToBottom = false
+let limitedBannerDismissed = false
+const resetComposerLimitBanner = () => {
+  limitedBannerDismissed = false
+  document.dispatchEvent(new CustomEvent('credit-banner-sync'))
+}
 const isNearBottom = (chat, threshold = 200) => {
   if (typeof chat === 'undefined' || !chat) return true
   const wants = chat.dataset?.stick === 'true' || stickToBottom
@@ -620,6 +721,13 @@ const createChatImage = (src, alt) => {
 }
 
 const copyChatImage = async (image) => {
+  const source = image.currentSrc || image.src
+  const directSource = /^https?:/i.test(source) || /^data:image\/(?:png|jpe?g);/i.test(source)
+  if (window.electron?.copyImageToClipboard && directSource) {
+    const result = await window.electron.copyImageToClipboard(source)
+    if (!result?.ok) throw new Error(result?.error || 'Clipboard write failed')
+    return
+  }
   await image.decode()
   const canvas = document.createElement('canvas')
   canvas.width = image.naturalWidth
@@ -644,6 +752,37 @@ const copyChatImage = async (image) => {
   }
   await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
 }
+
+const COPY_IMAGE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>'
+
+const enhanceMarkdownImages = (root) => {
+  if (!root?.querySelectorAll) return
+  root.querySelectorAll('img.md-img:not([data-copy-ready])').forEach((image) => {
+    image.dataset.copyReady = 'true'
+    const wrap = document.createElement('span')
+    wrap.className = 'md-image-wrap'
+    image.replaceWith(wrap)
+    wrap.append(image)
+
+    const copyButton = document.createElement('button')
+    copyButton.type = 'button'
+    copyButton.className = 'chat-image-copy md-image-copy'
+    copyButton.setAttribute('aria-label', 'Copy image')
+    copyButton.title = 'Copy image'
+    copyButton.innerHTML = COPY_IMAGE_ICON
+    wrap.append(copyButton)
+  })
+}
+
+const markdownImageObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    mutation.addedNodes.forEach((node) => {
+      if (node.nodeType !== 1) return
+      if (node.matches?.('img.md-img')) enhanceMarkdownImages(node.parentElement)
+      else enhanceMarkdownImages(node)
+    })
+  }
+})
 
 const updateScrollBtn = () => {
   const chat = document.querySelector('.chat')
@@ -725,11 +864,13 @@ const openSession = (id, targetIdx) => {
     if (sessionLoadTargetId !== id) return
     sessionLoadTargetId = null
     sessionLoadTimer = null
+    if (loading) loading.hidden = true
     if (!isCurrent) {
       messages.length = 0
       messages.push(...(s.messages || []).map((m) => ({ ...m })))
       inputHistory.length = 0
       inputHistoryIdx = -1
+      resetComposerLimitBanner()
       for (const m of messages) {
         if (m.role === 'user' && typeof m.content === 'string') {
           const text = m.content.replace(/\[image: [^\]]+\]/g, '').trim()
@@ -767,6 +908,7 @@ const openSession = (id, targetIdx) => {
     document.querySelector('.composer').hidden = true
     document.querySelector('.welcome-mark').hidden = true
     if (chat) chat.hidden = true
+    if (loading) loading.hidden = false
     sessionLoadTargetId = id
     sessionLoadTimer = setTimeout(() => {
       if (chat) chat.hidden = false
@@ -787,19 +929,6 @@ function createAvatar(role) {
   return avatar
 }
 
-const NOTIF_ICONS = {
-  error: `<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>`,
-  warning: `<path d="M12 3l9 16H3Z"/><path d="M12 10v5"/><path d="M12 17.5v.5"/>`,
-  info: `<path d="M20 6L9 17l-5-5"/>`
-}
-
-function showNotification(message, type = 'error') {
-  return
-}
-
-const showError = (message) => showNotification(message, 'error')
-const showWarning = (message) => showNotification(message, 'warning')
-
 function requestsLiveWeb(text) {
   return /\b(?:latest|current|currently|today|tonight|yesterday|this week|this month|right now|real[- ]time|breaking|recent|up[- ]to[- ]date|weather|stock price|exchange rate|live score)\b|\b(?:search|look up|find|check|browse)\b.{0,60}\b(?:web|internet|online|news|weather|price|version|release|results|source)\b|\b(?:web search|search the web|browse the web)\b/i.test(text)
 }
@@ -819,7 +948,6 @@ async function checkInternet() {
   try {
     const res = await window.electron.checkInternet()
     if (res && res.online === false) {
-      showNotification(tf('offlineMessage', 'You appear to be offline. Please check your internet connection.'), 'error')
       return false
     }
     return true
@@ -1124,9 +1252,24 @@ function highlightCodeBlocks(bubble) {
   })
 }
 
+// Hide hidden instructions from the visible reasoning/thinking stream: drop any
+// sentence that quotes or references the injected system prompt or hidden rules.
+const REASONING_REDACT_RE = /system\s*(?:prompt|instruction)|developer\s*instruction|hidden\s*instruction|initial\s*instruction|prior\s*instruction|secret\s*(?:prompt|instruction)|reveal[^.\n]{0,80}instruction|you are cilamai|cilamai desktop app|guidelines etc|do not[^.\n]{0,80}instruction|not follow[^.\n]{0,80}instruction/i
+
+function sanitizeReasoning(text) {
+  if (!text) return ''
+  const raw = String(text)
+  const sentences = raw.match(/[^.!?\n]+(?:[.!?]+(?:["')\]]+)?(?:\s*|\n)|\n+|$)/g) || [raw]
+  const kept = sentences.filter((s) => !REASONING_REDACT_RE.test(s))
+  return kept.join('').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function renderThinkingMarkdown(body, text) {
   if (!body) return
-  body.innerHTML = renderMarkdown(text || '')
+  const clean = sanitizeReasoning(text)
+  body.innerHTML = clean
+    ? renderMarkdown(clean)
+    : '<p class="thinking-hidden"><em>Reasoning hidden.</em></p>'
   highlightCodeBlocks(body)
 }
 
@@ -1213,14 +1356,7 @@ function addTypingIndicator() {
 
   const bubble = document.createElement('div')
   bubble.className = 'chat-bubble assistant typing'
-  const loading = document.createElement('div')
-  loading.className = 'loading-shimmer'
-  loading.setAttribute('role', 'status')
-  const loadingText = document.createElement('span')
-  loadingText.className = 'loading-shimmer-text'
-  loadingText.textContent = tf('loading', 'Loading')
-  loading.append(loadingText)
-  bubble.append(loading)
+  bubble.innerHTML = `<span class="loading-text loading-live">${tf('loading', 'Loading...')}</span>`
   row.append(bubble)
   chat.append(row)
   if (isNearBottom(chat)) {
@@ -1228,6 +1364,21 @@ function addTypingIndicator() {
     document.querySelector('.scroll-bottom-btn')?.classList.remove('visible')
   }
   return bubble
+}
+
+function clearTypingIndicator(bubble) {
+  if (!bubble || !bubble.isConnected) return
+  if (!bubble.classList.contains('typing')) return
+  const hasRealContent = Array.from(bubble.childNodes).some((node) => {
+    if (node.nodeType === 1 && node.classList?.contains('thinking')) return false
+    return String(node.textContent || '').trim().length > 0
+  })
+  if (hasRealContent) {
+    bubble.className = 'chat-bubble assistant'
+    return
+  }
+  const row = bubble.closest('.chat-row')
+  ;(row || bubble).remove()
 }
 
 const thinkingLabel = (active, elapsed) =>
@@ -1294,7 +1445,7 @@ function createThinkingBlock(open = false, active = open) {
   iconSvg.setAttribute('stroke-width', '2')
   iconSvg.setAttribute('stroke-linecap', 'round')
   iconSvg.setAttribute('stroke-linejoin', 'round')
-  iconSvg.innerHTML = '<path d="M11 3.5l1.7 4.1 4.1 1.7-4.1 1.7L11 15.1 9.3 11 5.2 9.3l4.1-1.7z"/><path d="M17.8 14.6l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/>'
+  iconSvg.innerHTML = '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.35c-.75.3-1.4.95-1.4 1.8V14"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/>'
   summary.appendChild(iconSvg)
   const textSpan = document.createElement('span')
   textSpan.className = 'thinking-text'
@@ -1317,6 +1468,15 @@ function createThinkingBlock(open = false, active = open) {
   body.className = 'thinking-body'
   thinking.append(summary, body)
   return thinking
+}
+
+// Stream finished: collapse the disclosure with the animated toggle
+// (the thinking icon is left untouched).
+function finishThinkingBlock(thinkingEl) {
+  if (!thinkingEl) return
+  thinkingEl.classList.remove('active')
+  thinkingEl.classList.add('done')
+  thinkingEl.removeAttribute('open')
 }
 
 function typewriterRender(bubble, text, done, thinkingEl) {
@@ -1447,28 +1607,80 @@ const displayNames = {
 
 const getDisplayName = (fullName) => displayNames[fullName] || fullName
 
+// Model metadata the provider API can return: a short description and the
+// model's capabilities.
+const MODEL_DESCRIPTION_KEYS = ['description', 'summary', 'blurb', 'subtitle', 'tagline', 'short_description', 'overview']
+const MODEL_META_BUCKETS = ['details', 'meta', 'metadata', 'tier', 'info', 'pricing', 'performance']
+
+const readModelMeta = (source) => {
+  const meta = { description: '', capabilities: [] }
+  if (!source || typeof source !== 'object') return meta
+  const buckets = [source]
+  for (const key of MODEL_META_BUCKETS) {
+    const bucket = source[key]
+    if (bucket && typeof bucket === 'object') buckets.push(bucket)
+  }
+  const readValue = (keys) => {
+    for (const bucket of buckets) {
+      for (const key of keys) {
+        const value = bucket[key]
+        if (typeof value === 'string' && value.trim()) return value.trim()
+        if (typeof value === 'number' && Number.isFinite(value)) return value
+      }
+    }
+    return ''
+  }
+  meta.description = readValue(MODEL_DESCRIPTION_KEYS)
+  if (Array.isArray(source.capabilities)) meta.capabilities = source.capabilities.filter(Boolean).map(String)
+  return meta
+}
+
+const readUsageTokens = (usage) => {
+  const n = Number(usage?.completion_tokens)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+// Rough token count from produced text, used only when the API reports no
+// usage block (credit accounting needs a number even then).
+const estimateTokens = (text) => {
+  const s = String(text || '')
+  if (!s.trim()) return 0
+  return Math.max(1, Math.round(s.length / 4))
+}
+
 let cachedModelItems = []
+
+const applyModelSelection = (fullName, displayName) => {
+  const item = cachedModelItems.find((i) => i.fullName === fullName)
+  const label = displayName || item?.displayName || getDisplayName(fullName)
+  const name = document.querySelector('.model-name')
+  if (name) {
+    name.textContent = label
+    name.dataset.fullModel = fullName
+  }
+}
 
 function renderModelOptions(filter = '') {
   const options = document.querySelector('.model-options')
   if (!options) return
   const query = filter.toLowerCase().trim()
   const filtered = query
-    ? cachedModelItems.filter((i) => i.displayName.toLowerCase().includes(query) || i.fullName.toLowerCase().includes(query))
+    ? cachedModelItems.filter((i) => i.displayName.toLowerCase().includes(query) || i.fullName.toLowerCase().includes(query) || (i.description || '').toLowerCase().includes(query))
     : cachedModelItems
   if (filtered.length === 0) {
     options.innerHTML = '<button type="button" class="model-option" disabled>No matching models</button>'
     return
   }
-  options.innerHTML = filtered.map((item) => `<button type="button" class="model-option" data-model="${item.fullName}" data-display="${item.displayName}">${item.displayName}</button>`).join('')
+  options.innerHTML = filtered.map((item) => {
+    const desc = item.description ? `<span class="model-option-desc">${escapeHtml(item.description)}</span>` : ''
+    return `<button type="button" class="model-option" data-model="${escapeHtml(item.fullName)}" data-display="${escapeHtml(item.displayName)}"><span class="model-option-line"><span class="model-option-name">${escapeHtml(item.displayName)}</span></span>${desc}</button>`
+  }).join('')
   const menu = document.querySelector('.model-menu')
-  const name = document.querySelector('.model-name')
   options.querySelectorAll('[data-model]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const fullName = btn.dataset.model
       const displayName = btn.dataset.display || getDisplayName(fullName)
-      name.textContent = displayName
-      name.dataset.fullModel = fullName
+      applyModelSelection(fullName, displayName)
       settings.model = fullName
       localStorage.setItem('cilamai-settings', JSON.stringify(settings))
       document.dispatchEvent(new CustomEvent('model-context-change', { detail: fullName }))
@@ -1519,13 +1731,13 @@ async function loadModels() {
         items = (data.data || []).map((m) => {
           const fullName = m.id
           const displayName = m.name || m.display_name || m.displayName || m.title || m.id
-          return { fullName, displayName }
+          return { fullName, displayName, ...readModelMeta(m) }
         })
       } else {
         items = (data.models || []).map((m) => {
           const fullName = m.name.replace(/:cloud$/, '')
           const displayName = m.display_name || m.displayName || m.title || m.name
-          return { fullName, displayName }
+          return { fullName, displayName, ...readModelMeta(m) }
         })
       }
       items = items.filter((i) => {
@@ -1538,7 +1750,10 @@ async function loadModels() {
   } catch (err) {
   }
   items = [
-    ...customModels,
+    ...customModels.map((cm) => {
+      const match = items.find((i) => i.fullName === cm.fullName)
+      return match ? { ...cm, ...match, displayName: cm.displayName } : cm
+    }),
     ...items.filter((i) => !customModels.some((cm) => cm.fullName === i.fullName || cm.displayName === i.displayName))
   ]
   items = items.map((i) => ({
@@ -1560,8 +1775,8 @@ async function loadModels() {
     settings.model = defaultItem.fullName
     localStorage.setItem('cilamai-settings', JSON.stringify(settings))
   }
-  name.textContent = defaultItem.displayName
-  name.dataset.fullModel = defaultItem.fullName
+  // Re-apply so the model label stays in sync with the API list.
+  applyModelSelection(defaultItem.fullName, defaultItem.displayName)
   document.dispatchEvent(new CustomEvent('model-context-change', { detail: defaultItem.fullName }))
   const compInput = document.querySelector('.composer-input')
   if (compInput) compInput.setAttribute('placeholder', 'Ask anything, / for commands...')
@@ -1571,6 +1786,13 @@ function showSettings() {
   const view = document.querySelector('.settings-view')
   if (!view) return
   view.hidden = false
+  setActiveView('settings')
+  // Hide Account and Usage tabs in guest/unauthenticated mode
+  const _cu = typeof currentUser !== 'undefined' ? currentUser : JSON.parse(localStorage.getItem('cilamai-user') || 'null')
+  const isGuest = !_cu || !(_cu.name || _cu.email)
+    || (_cu.name === 'Test User' && localStorage.getItem('cilamai-hide-test-user') === '1')
+  document.querySelector('[data-settings-target="account"]')?.toggleAttribute('hidden', isGuest)
+  document.querySelector('[data-settings-target="usage"]')?.toggleAttribute('hidden', isGuest)
   document.querySelector('.settings-body')?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' })
   refreshThemeShot()
   const urlInput = document.querySelector('#api-url')
@@ -1712,15 +1934,20 @@ async function loadHomeNews(force = false) {
   }
 }
 
+function setActiveView(view) {
+  document.querySelectorAll('.sidebar .rail-btn.sidebar-item[data-view]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.view === view)
+  })
+}
+
 function showHome() {
-  const fv = document.querySelector('.feedback-view')
-  if (fv) fv.hidden = true
   document.querySelector('.settings-view').hidden = true
   document.querySelector('.home-view').hidden = false
   document.querySelector('.chat').hidden = true
   document.querySelector('.composer').hidden = true
   document.querySelector('.welcome-mark').hidden = true
   document.querySelector('.main').classList.add('has-chat')
+  setActiveView('home')
   loadHomeNews()
 }
 
@@ -1730,8 +1957,6 @@ function initHomeView() {
 }
 
 function showChat() {
-  const fv = document.querySelector('.feedback-view')
-  if (fv) fv.hidden = true
   document.querySelector('.settings-view').hidden = true
   document.querySelector('.home-view').hidden = true
   document.querySelector('.chat').hidden = false
@@ -1740,6 +1965,7 @@ function showChat() {
   if (sl) sl.hidden = true
   const main = document.querySelector('.main')
   document.querySelector('.welcome-mark').hidden = main.classList.contains('has-chat')
+  setActiveView('chat')
 }
 
 function showHelp() {
@@ -1753,6 +1979,7 @@ function closeAbout() {
 }
 
 function showReleaseNotes() {
+  hideStartup()
   const overlay = document.querySelector('.release-notes-overlay')
   if (overlay) overlay.hidden = false
   const rn = document.querySelector('.release-notes-dialog')
@@ -1770,24 +1997,9 @@ function closeReleaseNotes() {
   if (overlay) overlay.hidden = true
 }
 
-function showFeedback() {
-  document.querySelector('.settings-view').hidden = true
-  document.querySelector('.home-view').hidden = true
-  document.querySelector('.chat').hidden = true
-  document.querySelector('.composer').hidden = true
-  document.querySelector('.welcome-mark').hidden = true
-  document.querySelector('.main').classList.add('has-chat')
-  const fv = document.querySelector('.feedback-view')
-  if (fv) {
-    fv.hidden = false
-    setTimeout(() => {
-      fv.querySelector('.feedback-textarea')?.focus()
-    }, 50)
-  }
-}
-
 function resetChat() {
   stopRecognition()
+  setActiveView('chat')
   if (messages.length) saveSession()
   currentSessionId = null
   clearTimeout(sessionLoadTimer)
@@ -1795,6 +2007,7 @@ function resetChat() {
   sessionLoadTargetId = null
   messages.length = 0
   pendingImages.length = 0
+  resetComposerLimitBanner()
   const chatEl = document.querySelector('.chat')
   const mainEl = document.querySelector('.main')
   const rows = chatEl ? Array.from(chatEl.querySelectorAll('.chat-row')) : []
@@ -1867,11 +2080,19 @@ const compareVersions = (a, b) => {
 function initUpdatePill() {
   const pill = document.querySelector('[data-update]')
   const sep = document.querySelector('[data-update-sep]')
+  const moreBadge = document.querySelector('[data-more-badge]')
+  if (import.meta.env?.DEV) {
+    if (pill) pill.hidden = true
+    if (sep) sep.hidden = true
+    if (moreBadge) moreBadge.hidden = true
+    return
+  }
   const check = window.electron?.checkUpdates
   if (!pill || !check) return
   let pending = false
   pill.hidden = true
   if (sep) sep.hidden = true
+  if (moreBadge) moreBadge.hidden = true
   pill.title = 'Check for updates'
 
   const checkNow = async ({ silent = false, force = false } = {}) => {
@@ -1889,6 +2110,7 @@ function initUpdatePill() {
       pill.classList.toggle('has-update', newer)
       pill.hidden = !newer
       if (sep) sep.hidden = !newer
+      if (moreBadge) moreBadge.hidden = !newer
       if (newer) {
         pill.title = `Update CilamAI to v${result.latest}`
         pill.dataset.downloadUrl = result.downloadUrl || result.url || ''
@@ -1903,10 +2125,8 @@ function initUpdatePill() {
       try {
         localStorage.setItem(UPDATE_CHECK_KEY, JSON.stringify({ at: Date.now(), latest: result.latest || '' }))
       } catch {}
-      if (!silent && !newer) showNotification(`You're up to date (v${result.current}).`, 'info')
       return result
     } catch (err) {
-      if (!silent) showNotification(err.message || 'Unable to check for updates.', 'error')
       return null
     } finally {
       pending = false
@@ -1914,25 +2134,32 @@ function initUpdatePill() {
   }
 
   pill.addEventListener('click', async () => {
+    const label = pill.querySelector('.tb-menu-label')
+    const originalText = label?.textContent || 'Update'
     const url = pill.dataset.downloadUrl
     if (!url) {
       if (pending) return
       pill.disabled = true
+      if (label) label.textContent = 'Updating...'
       try {
         await checkNow({ force: true })
       } finally {
         pill.disabled = false
+        if (label) label.textContent = originalText
       }
       return
     }
     pill.disabled = true
-    showNotification(`Downloading CilamAI v${pill.dataset.version || ''}...`, 'info')
+    if (label) label.textContent = 'Updating...'
     try {
-      const r = await window.electron?.downloadAndInstall?.(url)
-      if (!r || !r.ok) showNotification(`Download failed: ${r?.error || 'unknown error'}`, 'error')
-      else showNotification('Installing update...', 'info')
+      const r = window.electron?.updateAndRestart
+        ? await window.electron.updateAndRestart(url)
+        : await window.electron?.downloadAndInstall?.(url)
+      if (!r || !r.ok) {
+        if (label) label.textContent = originalText
+      }
     } catch (err) {
-      showNotification(`Download failed: ${err.message}`, 'error')
+      if (label) label.textContent = originalText
     } finally {
       pill.disabled = false
     }
@@ -2096,10 +2323,12 @@ function initCommandPalette() {
     { value: 'github-light', label: 'GitHub Light', keywords: 'github light white blue day theme color scheme appearance' },
     { value: 'opencode-light', label: 'OpenCode Light', keywords: 'opencode light orange purple paper warm theme color scheme appearance' },
     { value: 'vercel-light', label: 'Vercel Light', keywords: 'vercel light black white minimal monochrome theme color scheme appearance' },
+    { value: 'kilo-light', label: 'Kilo Light', keywords: 'kilo light warm paper violet minimal theme color scheme appearance' },
     { value: 'dark', label: 'Dark', keywords: 'dark night grey dim theme color scheme appearance' },
     { value: 'github-dark', label: 'GitHub Dark', keywords: 'github dark blue night developer theme color scheme appearance' },
     { value: 'black', label: 'Black', keywords: 'black amoled oled pure black theme color scheme appearance' },
     { value: 'vercel-dark', label: 'Vercel Dark', keywords: 'vercel dark black white minimal monochrome theme color scheme appearance' },
+    { value: 'kilo-dark', label: 'Kilo Dark', keywords: 'kilo dark charcoal violet minimal theme color scheme appearance' },
     { value: 'blue', label: 'Blue', keywords: 'blue navy azure theme color scheme appearance' },
     { value: 'red', label: 'Red', keywords: 'red crimson rose theme color scheme appearance' },
     { value: 'yellow', label: 'Yellow', keywords: 'yellow amber gold theme color scheme appearance' },
@@ -2301,7 +2530,6 @@ function initCommandPalette() {
     try {
       cmd.run()
     } catch (err) {
-      showNotification(err.message || 'Command failed', 'error')
     }
   }
 
@@ -2363,27 +2591,29 @@ async function init() {
   const form = document.querySelector('.composer')
   const modelMenu = document.querySelector('.model-menu')
   let modelMenuCloseTimer = null
+  const restoreModelMenuAnchor = () => {
+    if (!modelMenu) return
+    modelMenu.style.left = ''
+    modelMenu.style.top = ''
+    modelMenu.style.bottom = ''
+  }
   const closeModelMenu = (immediate = false) => {
     if (!modelMenu || modelMenu.hidden) return
     clearTimeout(modelMenuCloseTimer)
-    if (immediate) {
-      modelMenu.classList.remove('closing')
-      modelMenu.hidden = true
-      return
-    }
-    modelMenu.classList.add('closing')
-    modelMenuCloseTimer = setTimeout(() => {
-      modelMenu.hidden = true
-      modelMenu.classList.remove('closing')
-    }, 140)
+    modelMenu.classList.remove('closing')
+    modelMenu.hidden = true
+    restoreModelMenuAnchor()
   }
 
   input?.addEventListener('input', updateSendBtnState)
 
-  const menuVersion = document.querySelector('[data-menu-version] .tb-menu-version-value')
-  if (menuVersion && window.electron?.getAppVersion) {
+  if (window.electron?.getAppVersion) {
     window.electron.getAppVersion().then((v) => {
-      if (v) menuVersion.textContent = `v${v}`
+      if (!v) return
+      const menuVersion = document.querySelector('[data-menu-version] .tb-menu-version-value')
+      if (menuVersion) menuVersion.textContent = `v${v}`
+      const aboutVersion = document.querySelector('[data-about-version]')
+      if (aboutVersion) aboutVersion.textContent = v
     })
   }
 
@@ -2466,12 +2696,6 @@ async function init() {
         showHome()
       } else if (btn.dataset.view === 'settings') {
         showSettings()
-      } else if (btn.dataset.view === 'feedback') {
-        if (window.electron?.openFeedbackWindow) {
-          window.electron.openFeedbackWindow()
-        } else {
-          showFeedback()
-        }
       } else {
         if (btn.dataset.reset === 'true') resetChat()
         else showChat()
@@ -2566,13 +2790,34 @@ async function init() {
       .find((item) => item.dataset.settingsTarget === id)
       ?.querySelector('span')?.textContent
     if (settingsPaneTitle && label) settingsPaneTitle.textContent = label
-    document.querySelector('.settings-body')?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' })
+    const body = document.querySelector('.settings-body')
+    if (body) {
+      body.scrollTop = 0
+      body.scrollTo?.({ top: 0, left: 0, behavior: 'instant' })
+    }
     if (id === 'session') refreshSessionSettings()
+    if (id === 'account') refreshAccountSettings()
+    if (id === 'usage') renderUsagePane()
   }
 
   settingsNavItems.forEach((item) => {
     item.addEventListener('click', () => activateSettingsPane(item.dataset.settingsTarget))
   })
+
+  // Fast first-open fix: when entering Settings straight to the Usage tab,
+  // its bar starts hidden and only animates in after a paint.
+  const usageNavBtn = document.querySelector('[data-settings-target="usage"]')
+  usageNavBtn?.addEventListener('click', () => {
+    const fillEl = document.querySelector('#usage-left-fill')
+    if (!fillEl) return
+    const paneHidden = document.querySelector('[data-settings-pane="usage"]')?.hidden
+    if (paneHidden) {
+      fillEl.style.transition = 'none'
+      fillEl.style.width = '0%'
+    } else {
+      fillEl.style.transition = ''
+    }
+  }, true)
 
   document.querySelector('#session-settings-save')?.addEventListener('click', () => {
     const title = sessionNameInput?.value.trim().slice(0, 60) || ''
@@ -2715,7 +2960,6 @@ async function init() {
 
   document.querySelector('#refresh-models')?.addEventListener('click', async () => {
     await loadModels()
-    showNotification(tf('modelsRefreshed', 'Models refreshed'), 'warning')
   })
 
   if (currentLang) loadLocale(currentLang)
@@ -2727,7 +2971,7 @@ async function init() {
     })
     launchCheck.addEventListener('change', async () => {
       const r = await window.electron?.setStartup?.(launchCheck.checked)
-      if (r && !r.ok) showError(`Startup failed: ${r.error}`)
+      if (r && !r.ok) console.error('Startup failed:', r.error)
     })
   }
 
@@ -2743,138 +2987,6 @@ async function init() {
       localStorage.setItem('cilamai-settings', JSON.stringify(settings))
       if (settings.shimmerEffect) document.body.classList.add('shimmer-enabled')
       else document.body.classList.remove('shimmer-enabled')
-    })
-  }
-
-  const notificationsEnableCheck = document.querySelector('#notifications-enable')
-  if (notificationsEnableCheck) {
-    if (settings.notificationsEnable === undefined) settings.notificationsEnable = true
-    notificationsEnableCheck.checked = settings.notificationsEnable
-    window.electron?.notificationsSetEnabled?.(settings.notificationsEnable)
-    notificationsEnableCheck.addEventListener('change', () => {
-      settings.notificationsEnable = notificationsEnableCheck.checked
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      window.electron?.notificationsSetEnabled?.(notificationsEnableCheck.checked)
-    })
-  }
-
-  const notificationsSoundCheck = document.querySelector('#notifications-sound')
-  if (notificationsSoundCheck) {
-    if (settings.notificationsSound === undefined) settings.notificationsSound = false
-    notificationsSoundCheck.checked = settings.notificationsSound
-    window.electron?.notificationsSetSound?.(settings.notificationsSound)
-    notificationsSoundCheck.addEventListener('change', () => {
-      settings.notificationsSound = notificationsSoundCheck.checked
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      window.electron?.notificationsSetSound?.(notificationsSoundCheck.checked)
-    })
-  }
-
-  document.querySelectorAll('[data-segmented="notifications-duration"]').forEach((btn) => {
-    if (settings.notificationsDuration === undefined) settings.notificationsDuration = 6
-    if (Number(btn.dataset.value) === settings.notificationsDuration) btn.classList.add('active')
-    else btn.classList.remove('active')
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-segmented="notifications-duration"]').forEach((b) => b.classList.remove('active'))
-      btn.classList.add('active')
-      settings.notificationsDuration = Number(btn.dataset.value)
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      window.electron?.notificationsSetDuration?.(settings.notificationsDuration)
-    })
-  })
-
-  document.querySelectorAll('[data-segmented="notifications-position"]').forEach((btn) => {
-    if (settings.notificationsPosition === undefined) settings.notificationsPosition = 'top-right'
-    if (btn.dataset.value === settings.notificationsPosition) btn.classList.add('active')
-    else btn.classList.remove('active')
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-segmented="notifications-position"]').forEach((b) => b.classList.remove('active'))
-      btn.classList.add('active')
-      settings.notificationsPosition = btn.dataset.value
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      document.body.dataset.notifPosition = settings.notificationsPosition
-      window.electron?.notificationsSetPosition?.(settings.notificationsPosition)
-    })
-  })
-
-  const notificationsTestBtn = document.querySelector('#notifications-test-btn')
-  if (notificationsTestBtn) {
-    notificationsTestBtn.addEventListener('click', () => {
-      window.electron?.notificationsShow?.({
-        title: 'CilamAI',
-        message: tf('notifTestMessage', 'This is a test notification.'),
-        type: 'info'
-      })
-      showNotification(tf('notifTestMessage', 'This is a test notification.'), 'info')
-    })
-  }
-
-  if (settings.notificationsPosition) {
-    document.body.dataset.notifPosition = settings.notificationsPosition
-  }
-
-  const memoryEnableCheck = document.querySelector('#memory-enable')
-  if (memoryEnableCheck) {
-    if (settings.memoryEnable === undefined) settings.memoryEnable = true
-    memoryEnableCheck.checked = settings.memoryEnable
-    memoryEnableCheck.addEventListener('change', () => {
-      settings.memoryEnable = memoryEnableCheck.checked
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      window.electron?.memorySetEnabled?.(memoryEnableCheck.checked)
-    })
-  }
-
-  const memoryContextWindowInput = document.querySelector('#memory-context-window')
-  if (memoryContextWindowInput) {
-    if (settings.memoryContextWindow === undefined) settings.memoryContextWindow = 200000
-    memoryContextWindowInput.value = settings.memoryContextWindow
-    memoryContextWindowInput.addEventListener('change', () => {
-      const val = parseInt(memoryContextWindowInput.value, 10)
-      if (val >= 1000 && val <= 1000000) {
-        settings.memoryContextWindow = val
-        localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-        window.electron?.memorySetContextWindow?.(val).then((res) => {
-          if (res?.ok) {
-            showNotification(tf('contextWindowUpdated', `Context window set to ${res.maxTokens.toLocaleString()} tokens.`), 'info')
-          }
-        })
-      } else {
-        memoryContextWindowInput.value = settings.memoryContextWindow
-      }
-    })
-  }
-
-  document.querySelectorAll('[data-segmented="memory-retention"]').forEach((btn) => {
-    if (settings.memoryRetention === undefined) settings.memoryRetention = 'session'
-    if (btn.dataset.value === settings.memoryRetention) btn.classList.add('active')
-    else btn.classList.remove('active')
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-segmented="memory-retention"]').forEach((b) => b.classList.remove('active'))
-      btn.classList.add('active')
-      settings.memoryRetention = btn.dataset.value
-      localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-      window.electron?.memorySetRetention?.(btn.dataset.value)
-    })
-  })
-
-  const memoryClearBtn = document.querySelector('#memory-clear-btn')
-  if (memoryClearBtn) {
-    memoryClearBtn.addEventListener('click', async () => {
-      const result = await window.electron?.memoryClear?.()
-      if (result?.ok) {
-        showNotification(tf('memoryCleared', `All memory cleared (${result.cleared} entries removed).`), 'info')
-      } else {
-        showError(result?.error || 'Failed to clear memory.')
-      }
-    })
-  }
-
-  const memoryStatusEl = document.querySelector('#memory-status')
-  if (memoryStatusEl) {
-    window.electron?.memoryGet?.().then((res) => {
-      if (res?.ok && res.memory) {
-        memoryStatusEl.textContent = `${res.memory.count} entries · ${res.memory.totalTokens.toLocaleString()} tokens`
-      }
     })
   }
 
@@ -2940,6 +3052,7 @@ async function init() {
     })
   })
 
+
   const prefAnimations = document.querySelector('#pref-animations')
   if (prefAnimations) {
     prefAnimations.checked = settings.animationsEnabled !== false
@@ -3004,7 +3117,6 @@ async function init() {
     localStorage.setItem('cilamai-settings', JSON.stringify(settings))
     const compInput = document.querySelector('.composer-input')
     if (compInput) compInput.setAttribute('placeholder', 'Ask anything, / for commands...')
-    showNotification(`Model set to ${displayName}`, 'info')
   }
 
   document.querySelector('[data-command-palette-toggle]')?.addEventListener('click', () => {
@@ -3032,13 +3144,6 @@ async function init() {
         if (action === 'settings') showSettings()
         if (action === 'help') showHelp()
         if (action === 'release-notes') showReleaseNotes()
-        if (action === 'feedback') {
-          if (window.electron?.openFeedbackWindow) {
-            window.electron.openFeedbackWindow()
-          } else {
-            showFeedback()
-          }
-        }
         if (action === 'close') window.electron?.closeWindow?.()
         if (action === 'refresh-models') loadModels()
         if (action === 'clear-chat') resetChat()
@@ -3123,7 +3228,6 @@ async function init() {
     if (grokInput && grokApiKey) grokInput.value = grokApiKey
     const zaiInput = document.getElementById('zai-api-key')
     if (zaiInput && zaiApiKey) zaiInput.value = zaiApiKey
-    showNotification(raw ? 'API Keys saved successfully' : 'API key cleared', 'info')
     loadModels()
   }
   window.electron?.onSetApiKeyTask?.((key) => saveApiKey(key))
@@ -3205,15 +3309,11 @@ async function init() {
             opt.click()
             return
           }
-          const nameEl = document.querySelector('.model-name')
-          if (nameEl) {
-            const dispName = getDisplayName(target)
-            nameEl.textContent = dispName
-            nameEl.dataset.fullModel = target
-            document.dispatchEvent(new CustomEvent('model-context-change', { detail: target }))
-            const compInput = document.querySelector('.composer-input')
-            if (compInput) compInput.setAttribute('placeholder', `Message ${dispName}`)
-          }
+          const dispName = getDisplayName(target)
+          applyModelSelection(target, dispName)
+          document.dispatchEvent(new CustomEvent('model-context-change', { detail: target }))
+          const compInput = document.querySelector('.composer-input')
+          if (compInput) compInput.setAttribute('placeholder', `Message ${dispName}`)
           return
         }
         document.querySelector('[data-model-toggle]')?.click()
@@ -3229,13 +3329,6 @@ async function init() {
         saveCreditState()
         renderCreditMenu()
         if (limitedBanner) limitedBanner.hidden = true
-        showNotification(`${tf('credits', 'Credits')}: ${creditUsed}/${creditLimit}`, 'warning')
-      },
-      'speed': () => {
-        const value = parseInt(args[0], 10)
-        creditSpeed = Number.isFinite(value) && value > 0 ? value : 2
-        renderCreditMenu()
-        showNotification(`Speed: ${creditSpeed}x`, 'warning')
       },
       'screenshot': () => {
         const cap = document.querySelector('[data-action="capture"]')
@@ -3248,7 +3341,6 @@ async function init() {
         else if (mode === 'toggle' || !mode) showThinking = !showThinking
         settings.showThinking = showThinking
         localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-        showNotification(showThinking ? 'Thinking shown' : 'Thinking hidden', 'warning')
       },
       'thought': () => {
         const mode = args[0]
@@ -3257,7 +3349,6 @@ async function init() {
         else if (mode === 'toggle' || !mode) showThinking = !showThinking
         settings.showThinking = showThinking
         localStorage.setItem('cilamai-settings', JSON.stringify(settings))
-        showNotification(showThinking ? 'Thinking shown' : 'Thinking hidden', 'warning')
       },
       'context-window-boost': () => {
         const mode = args[0]
@@ -3265,11 +3356,8 @@ async function init() {
         window.electron?.contextWindowBoost?.(enabled).then((res) => {
           if (res?.ok) {
             contextWindowBoostEnabled = res.enabled
-            const multiplier = res.speedMultiplier || 1
-            showNotification(`${res.message}`, 'info')
           }
         }).catch(() => {
-          showNotification('Context Window Boost unavailable', 'error')
         })
       },
       'context-window': () => {
@@ -3292,7 +3380,6 @@ async function init() {
         const value = args[0] || 'Reserved for response'
         const reservedEl = document.querySelector('[data-context-reserved]')
         if (reservedEl) reservedEl.textContent = value
-        showNotification(`Reserved: ${value}`, 'info')
       },
       'loading': () => {
         const mode = args[0]
@@ -3313,6 +3400,9 @@ async function init() {
         window.electron?.signIn?.('google')
       },
       'user': () => {
+        if (!currentUser) {
+          return
+        }
         const val = args.join(':')
         let name = ''
         let email = ''
@@ -3334,87 +3424,82 @@ async function init() {
         window.electron?.setUser?.(currentUser)
         updateUserUI()
         loadCredits()
-        showNotification(`User updated: ${name || email}`, 'info')
       },
       'username': () => {
-        const name = args.join(' ')
         if (!currentUser) {
-          currentUser = { name, email: '', picture: null, provider: 'ipc' }
-        } else {
-          currentUser.name = name
+          return
         }
+        const name = args.join(' ')
+        currentUser.name = name
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         updateUserUI()
         loadCredits()
-        showNotification(`Username set to: ${name}`, 'info')
       },
       'name': () => {
-        const name = args.join(' ')
         if (!currentUser) {
-          currentUser = { name, email: '', picture: null, provider: 'ipc' }
-        } else {
-          currentUser.name = name
+          return
         }
+        const name = args.join(' ')
+        currentUser.name = name
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         updateUserUI()
         loadCredits()
-        showNotification(`Name set to: ${name}`, 'info')
       },
       'email': () => {
-        const email = args[0] || ''
         if (!currentUser) {
-          currentUser = { name: email.split('@')[0] || '', email, picture: null, provider: 'ipc' }
-        } else {
-          currentUser.email = email
-          if (!currentUser.name) currentUser.name = email.split('@')[0] || ''
+          return
         }
+        const email = args[0] || ''
+        currentUser.email = email
+        if (!currentUser.name) currentUser.name = email.split('@')[0] || ''
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         updateUserUI()
         loadCredits()
-        showNotification(`Email set to: ${email}`, 'info')
       },
       'user-email': () => {
-        const email = args[0] || ''
         if (!currentUser) {
-          currentUser = { name: email.split('@')[0] || '', email, picture: null, provider: 'ipc' }
-        } else {
-          currentUser.email = email
-          if (!currentUser.name) currentUser.name = email.split('@')[0] || ''
+          return
         }
+        const email = args[0] || ''
+        currentUser.email = email
+        if (!currentUser.name) currentUser.name = email.split('@')[0] || ''
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         updateUserUI()
         loadCredits()
-        showNotification(`Email set to: ${email}`, 'info')
+      },
+      'hide-test-user': () => {
+        localStorage.setItem('cilamai-hide-test-user', '1')
+        updateUserUI()
+      },
+      'show-test-user': () => {
+        localStorage.removeItem('cilamai-hide-test-user')
+        updateUserUI()
       },
       'avatar': () => {
-        const pic = args.join(':')
-        if (currentUser) {
-          currentUser.picture = pic
-        } else {
-          currentUser = { name: 'User', email: '', picture: pic, provider: 'ipc' }
+        if (!currentUser) {
+          return
         }
+        const pic = args.join(':')
+        currentUser.picture = pic
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         window.electron?.setAvatar?.(pic)
         updateUserUI()
-        showNotification('Avatar updated', 'info')
       },
       'user-avatar': () => {
-        const pic = args.join(':')
-        if (currentUser) {
-          currentUser.picture = pic
-        } else {
-          currentUser = { name: 'User', email: '', picture: pic, provider: 'ipc' }
+        if (!currentUser) {
+          return
         }
+        const pic = args.join(':')
+        currentUser.picture = pic
         localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
         window.electron?.setUser?.(currentUser)
         window.electron?.setAvatar?.(pic)
         updateUserUI()
-        showNotification('Avatar updated', 'info')
       },
     }
     if (cmds[name]) cmds[name]()
@@ -3446,11 +3531,8 @@ async function init() {
   const closeCtxMenu = () => {
     if (!ctxMenu || ctxMenu.hidden) return
     clearTimeout(ctxMenuCloseTimer)
-    ctxMenu.classList.add('closing')
-    ctxMenuCloseTimer = setTimeout(() => {
-      ctxMenu.hidden = true
-      ctxMenu.classList.remove('closing')
-    }, 140)
+    ctxMenu.classList.remove('closing')
+    ctxMenu.hidden = true
     ctxSessionId = null
   }
   const aboutOverlay = document.querySelector('.about-overlay')
@@ -3599,16 +3681,8 @@ async function init() {
   const closeAttachMenu = (immediate = false) => {
     if (!attachMenu || attachMenu.hidden) return
     clearTimeout(attachMenuCloseTimer)
-    if (immediate) {
-      attachMenu.classList.remove('closing')
-      attachMenu.hidden = true
-      return
-    }
-    attachMenu.classList.add('closing')
-    attachMenuCloseTimer = setTimeout(() => {
-      attachMenu.hidden = true
-      attachMenu.classList.remove('closing')
-    }, 140)
+    attachMenu.classList.remove('closing')
+    attachMenu.hidden = true
   }
   document.querySelector('[data-attach-toggle]')?.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -3634,63 +3708,144 @@ async function init() {
   })
 
   const micBtn = document.querySelector('[data-mic-toggle]')
-  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition
+  const showMicStatus = (message, isError = false) => {
+    let el = document.querySelector('.mic-status')
+    if (!el) {
+      el = document.createElement('div')
+      el.className = 'mic-status'
+      document.querySelector('.composer')?.append(el)
+    }
+    if (!message) {
+      el.hidden = true
+      el.textContent = ''
+      return
+    }
+    el.textContent = message
+    el.classList.toggle('error', !!isError)
+    el.hidden = false
+  }
+  const insertMicText = (text) => {
+    const input = document.querySelector('.composer-input')
+    if (!input) return
+    const start = input.selectionStart ?? input.value.length
+    const end = input.selectionEnd ?? input.value.length
+    const before = input.value.slice(0, start)
+    const after = input.value.slice(end)
+    const prefix = before && !/\s$/.test(before) ? ' ' : ''
+    const suffix = after && !/\s$/.test(text) && !/^\s/.test(after) ? ' ' : ''
+    const merged = (before + prefix + text + suffix + after).replace(/\s{2,}/g, ' ')
+    input.value = merged
+    const pos = (before + prefix + text).length
+    input.focus()
+    input.setSelectionRange(pos, pos)
+    input.dispatchEvent(new Event('input'))
+  }
+  const pickMicMime = () => {
+    if (!window.MediaRecorder) return ''
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']
+    for (const t of candidates) if (MediaRecorder.isTypeSupported(t)) return t
+    return ''
+  }
+  const transcribeAudio = async (blob) => {
+    if (isOllama() || !baseUrl) {
+      return { ok: false, error: 'Voice input needs an OpenAI-compatible provider URL in Settings → Model providers.' }
+    }
+    if (!window.electron?.transcribeAudio) return { ok: false, error: 'Voice transcription is unavailable.' }
+    const endpoint = `${String(baseUrl).replace(/\/+$/, '')}/audio/transcriptions`
+    const data = await blob.arrayBuffer()
+    return window.electron.transcribeAudio({
+      url: endpoint,
+      apiKey: getProviderApiKey(settings.model || '') || apiKey,
+      model: 'whisper-1',
+      mimeType: blob.type || 'audio/webm',
+      filename: 'voice.webm',
+      data
+    })
+  }
+  const handleMicStop = async () => {
+    clearTimeout(micAutoStop)
+    micAutoStop = null
+    const chunks = micChunks.slice()
+    const mime = mediaRecorder?.mimeType || 'audio/webm'
+    const wasAborted = micAbort
+    resetMicUI()
+    micAbort = false
+    if (wasAborted || !chunks.length) return
+    const blob = new Blob(chunks, { type: mime })
+    transcribing = true
+    micBtn?.classList.add('transcribing')
+    showMicStatus('Transcribing…')
+    try {
+      const res = await transcribeAudio(blob)
+      const text = String(res?.text || '').trim()
+      if (res?.ok && text) {
+        insertMicText(text)
+        showMicStatus(null)
+      } else {
+        showMicStatus(res?.error || 'Transcription failed.', true)
+      }
+    } catch (err) {
+      showMicStatus(err?.message || 'Transcription failed.', true)
+    } finally {
+      transcribing = false
+      micBtn?.classList.remove('transcribing')
+      if (!document.querySelector('.mic-status')?.hidden) {
+        setTimeout(() => showMicStatus(null), 4200)
+      }
+    }
+  }
   if (micBtn) {
-    if (!SpeechRecognitionCtor) {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       micBtn.hidden = true
     } else {
-      const speechLangFor = () => {
-        if (currentLang === 'zh' || currentLang === 'zh-TW') return currentLang === 'zh-TW' ? 'zh-TW' : 'zh-CN'
-        return (localeData && localeData.speechLang) || currentLang || 'en-US'
-      }
-      recognition = new SpeechRecognitionCtor()
-      recognition.continuous = false
-      recognition.interimResults = false
-      recognition.lang = speechLangFor()
-
-      recognition.onresult = (event) => {
-        const input = document.querySelector('.composer-input')
-        if (!input) return
-        let finalText = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const res = event.results[i]
-          if (res.isFinal) finalText += res[0].transcript
-        }
-        if (finalText) {
-          const start = input.selectionStart ?? input.value.length
-          const end = input.selectionEnd ?? input.value.length
-          const merged = (input.value.slice(0, start) + finalText + input.value.slice(end)).replace(/\s{2,}/g, ' ')
-          input.value = merged
-          const pos = start + finalText.length
-          input.setSelectionRange(pos, pos)
-          input.dispatchEvent(new Event('input'))
-        }
-      }
-      recognition.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          showWarning(tf('micPermission', 'Microphone access was denied.'))
-        } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
-          showWarning(tf('micError', 'Voice input stopped.'))
-        }
-        stopRecognition()
-      }
-      recognition.onend = () => stopRecognition()
-
-      micBtn.addEventListener('click', () => {
-        const input = document.querySelector('.composer-input')
+      micBtn.addEventListener('click', async () => {
+        if (transcribing) return
         if (recognizing) {
-          stopRecognition()
+          micAbort = false
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
           return
         }
-        if (input) input.focus()
         try {
-          recognition.lang = speechLangFor()
-          recognition.start()
-          recognizing = true
-          micBtn.classList.add('listening')
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         } catch {
-          stopRecognition()
+          showMicStatus('Microphone access was denied.', true)
+          setTimeout(() => showMicStatus(null), 4200)
+          return
         }
+        const mime = pickMicMime()
+        mediaRecorder = mime ? new MediaRecorder(micStream, { mimeType: mime }) : new MediaRecorder(micStream)
+        micChunks = []
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size) micChunks.push(e.data)
+        }
+        mediaRecorder.onstop = handleMicStop
+        micAbort = false
+        mediaRecorder.start()
+        try {
+          micAudioCtx = new (window.AudioContext || window.webkitAudioContext)()
+          const src = micAudioCtx.createMediaStreamSource(micStream)
+          micAnalyser = micAudioCtx.createAnalyser()
+          micAnalyser.fftSize = 256
+          micAnalyser.smoothingTimeConstant = 0.8
+          src.connect(micAnalyser)
+        } catch {}
+        startVoiceUI()
+        recognizing = true
+        micBtn.classList.add('listening')
+        micAutoStop = setTimeout(() => {
+          if (recognizing && mediaRecorder && mediaRecorder.state !== 'inactive') {
+            micAbort = false
+            mediaRecorder.stop()
+          }
+        }, 60000)
+      })
+      document.querySelector('[data-voice-stop]')?.addEventListener('click', () => {
+        if (!recognizing) return
+        micAbort = false
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+      })
+      document.querySelector('[data-voice-cancel]')?.addEventListener('click', () => {
+        stopRecognition()
       })
     }
   }
@@ -3770,12 +3925,46 @@ async function init() {
         `${intro} Your credits refresh on ${formatTimeLeft(creditResetAt - Date.now())}.`
 
       let contextWindowMax = 200000
-  let creditWarningShown = false
   const formatCreditNumber = (n) => {
     if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
     if (n >= 999500) return '1M'
     if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`
     return String(n)
+  }
+  const formatResetsIn = (ms) => {
+    if (!Number.isFinite(ms) || ms <= 0) return 'Resets soon'
+    const totalMin = Math.floor(ms / 60000)
+    const d = Math.floor(totalMin / 1440)
+    const h = Math.floor((totalMin % 1440) / 60)
+    const m = totalMin % 60
+    if (d >= 1) return `Resets in ${d}d ${h}h`
+    if (h >= 1) return `Resets in ${h}h ${m}m`
+    return `Resets in ${Math.max(1, m)}m`
+  }
+  const renderUsagePane = () => {
+    const isYearly = creditLimit > 100
+    const remaining = Math.max(0, creditLimit - creditUsed)
+    const leftPct = Math.max(0, Math.min(100, Math.round((remaining / creditLimit) * 100)))
+    const titleEl = document.querySelector('#usage-limit-title')
+    const resetsEl = document.querySelector('#usage-resets-in')
+    const leftEl = document.querySelector('#usage-left-pct')
+    const barEl = document.querySelector('#usage-limit-bar')
+    const fillEl = document.querySelector('#usage-left-fill')
+    const planEl = document.querySelector('#usage-plan')
+    const resetEl = document.querySelector('#usage-reset')
+    const cycleEl = document.querySelector('#usage-cycle')
+    if (titleEl) titleEl.textContent = isYearly ? 'Annual Usage' : 'Daily Usage'
+    if (resetsEl) resetsEl.textContent = formatResetsIn(creditResetAt - Date.now())
+    if (leftEl) leftEl.textContent = `${leftPct}% left`
+    if (fillEl) {
+      fillEl.style.width = `${leftPct}%`
+      fillEl.classList.toggle('warn', leftPct <= 25 && leftPct > 10)
+      fillEl.classList.toggle('crit', leftPct <= 10)
+    }
+    if (barEl) barEl.setAttribute('aria-valuenow', String(leftPct))
+    if (planEl) planEl.textContent = isYearly ? 'VIP' : 'Free'
+    if (resetEl) resetEl.textContent = formatTimeLeft(creditResetAt - Date.now())
+    if (cycleEl) cycleEl.textContent = isYearly ? '1 year' : '24 hours'
   }
   const renderCreditMenu = () => {
     const barEl = document.querySelector('[data-credit-bar]')
@@ -3797,17 +3986,23 @@ async function init() {
     if (contextEl) {
       contextEl.textContent = String(messages.length)
     }
-    if (pct < 75) creditWarningShown = false
-    if (pct >= 75 && !creditWarningShown) {
-      creditWarningShown = true
-      showNotification('Credits usage reached 75%.', 'warning')
-    }
+    renderUsagePane()
+    syncComposerLimitBanner()
   }
   renderCreditMenu()
+  // Keep the "Resets in …" countdown fresh while the app is open
+  setInterval(renderUsagePane, 60_000)
 
   const sidebarAccountBtn = document.querySelector('[data-sidebar-account]')
   const authDialog = document.querySelector('.auth-dialog-overlay')
   let currentUser = JSON.parse(localStorage.getItem('cilamai-user') || 'null')
+
+  // Guest mode is removed: the main app requires a signed-in account.
+  // Bounce anyone who reaches index.html without one back to the sign-in page.
+  if (!currentUser || !(currentUser.name || currentUser.email)) {
+    window.location.replace('./signin.html')
+    return
+  }
 
   const updateUserUI = () => {
     const nameEl = document.querySelector('[data-user-name]')
@@ -3844,7 +4039,8 @@ async function init() {
       }
     }
 
-    if (currentUser && (currentUser.name || currentUser.email)) {
+    const shouldHideTestUser = currentUser?.name === 'Test User' && localStorage.getItem('cilamai-hide-test-user') === '1'
+    if (currentUser && (currentUser.name || currentUser.email) && !shouldHideTestUser) {
       const displayName = currentUser.name && !currentUser.name.includes('@') ? currentUser.name : 'User'
       if (nameEl) nameEl.textContent = displayName
 
@@ -3873,6 +4069,61 @@ async function init() {
       if (sidebarAvatar) sidebarAvatar.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
       if (sidebarName) sidebarName.textContent = 'Sign in'
     }
+    refreshAccountSettings()
+  }
+
+  let avatarRetryKey = 0
+  const avatarWithRetry = (src) => {
+    if (!avatarRetryKey || !src || src.startsWith('data:')) return src
+    return src + (src.includes('?') ? '&' : '?') + 'retry=' + avatarRetryKey
+  }
+  const refreshAccountSettings = () => {
+    const avatarPreview = document.getElementById('account-avatar-preview')
+    const nameInput = document.getElementById('account-name-input')
+    const providerLabel = document.getElementById('account-provider-label')
+    const emailLabel = document.getElementById('account-email-label')
+    if (emailLabel) emailLabel.textContent = currentUser?.email || 'Not set'
+
+    const displayName = currentUser?.name || ''
+    if (nameInput && document.activeElement !== nameInput) nameInput.value = displayName
+
+    if (providerLabel) {
+      const p = (currentUser?.provider || 'google').toLowerCase()
+      providerLabel.textContent = p === 'github' ? 'GitHub' : p === 'google' ? 'Google' : 'Custom'
+    }
+
+    if (avatarPreview) {
+      avatarPreview.classList.remove('account-avatar-failed')
+      avatarPreview.innerHTML = ''
+      const initial = (currentUser?.name || currentUser?.email || 'U').charAt(0).toUpperCase()
+      const picture = currentUser?.picture || ''
+      if (picture) {
+        const img = document.createElement('img')
+        img.src = avatarWithRetry(picture)
+        img.referrerPolicy = 'no-referrer'
+        img.style.width = '100%'
+        img.style.height = '100%'
+        img.style.objectFit = 'cover'
+        img.onerror = () => {
+          avatarPreview.innerHTML = ''
+          avatarPreview.classList.add('account-avatar-failed')
+          const retryBtn = document.createElement('button')
+          retryBtn.type = 'button'
+          retryBtn.className = 'account-avatar-retry'
+          retryBtn.title = 'Retry loading avatar'
+          retryBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>'
+          retryBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            avatarRetryKey += 1
+            refreshAccountSettings()
+          })
+          avatarPreview.appendChild(retryBtn)
+        }
+        avatarPreview.appendChild(img)
+      } else {
+        avatarPreview.innerHTML = `<div class="user-avatar-initial" style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;">${initial}</div>`
+      }
+    }
   }
   updateUserUI()
 
@@ -3884,11 +4135,12 @@ async function init() {
       try {
         const res = await window.electron.uploadAvatar()
         if (res?.ok && res.picture) {
-          if (!currentUser) currentUser = { name: 'XDev', email: '', picture: res.picture, provider: 'custom' }
+          if (!currentUser) currentUser = { name: 'User', email: '', picture: res.picture, provider: 'custom' }
           else currentUser.picture = res.picture
           localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
+          window.electron?.setUser?.(currentUser)
+          window.electron?.setAvatar?.(res.picture)
           updateUserUI()
-          showNotification('Avatar updated successfully', 'info')
           return
         }
         if (res?.canceled) return
@@ -3910,7 +4162,7 @@ async function init() {
     reader.onload = () => {
       const dataUrl = reader.result
       if (!currentUser) {
-        currentUser = { name: 'XDev', email: '', picture: dataUrl, provider: 'custom' }
+        currentUser = { name: 'User', email: '', picture: dataUrl, provider: 'custom' }
       } else {
         currentUser.picture = dataUrl
       }
@@ -3918,7 +4170,6 @@ async function init() {
       window.electron?.setUser?.(currentUser)
       window.electron?.setAvatar?.(dataUrl)
       updateUserUI()
-      showNotification('Avatar updated successfully', 'info')
     }
     reader.readAsDataURL(file)
   })
@@ -3938,7 +4189,11 @@ async function init() {
       updateUserUI()
       loadCredits()
     } else if (currentUser) {
-      window.electron?.setUser?.(currentUser)
+      // Signed out in the main process: keep the stored profile on disk and just
+      // require sign-in again — account data must not be removed.
+      currentUser = null
+      window.location.replace('./signin.html')
+      return
     }
   })
 
@@ -3946,6 +4201,7 @@ async function init() {
     e.stopPropagation()
     if (currentUser && (currentUser.name || currentUser.email)) {
       showSettings()
+      activateSettingsPane('account')
     } else if (authDialog) {
       authDialog.hidden = false
     }
@@ -3959,28 +4215,108 @@ async function init() {
     if (e.target === authDialog) authDialog.hidden = true
   })
 
+  // Sign-up: delegated so it works even if the DOM node mounts later.
+  document.addEventListener('click', async (e) => {
+    const link = e.target.closest('[data-action="signup"]')
+    if (!link) return
+    e.preventDefault()
+    if (!window.electron?.signIn) {
+      return
+    }
+    if (authDialog) authDialog.hidden = true
+    try {
+      const res = await window.electron.signIn('google')
+      if (res?.user) {
+        currentUser = res.user
+        localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
+        window.electron?.setUser?.(currentUser)
+        updateUserUI()
+        loadCredits()
+        showSettings()
+        activateSettingsPane('account')
+      }
+    } catch (err) {
+      console.error('Sign-up error:', err)
+    }
+  })
+
   document.querySelectorAll('.auth-provider-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const provider = btn.dataset.provider || 'oauth'
 
       if (authDialog) authDialog.hidden = true
       if (provider === 'google' && window.electron?.signIn) {
-        showNotification('Opening Google Sign-In in browser...', 'info')
         try {
           const res = await window.electron.signIn('google')
           if (res?.user) {
             currentUser = res.user
             localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
+            window.electron?.setUser?.(currentUser)
             updateUserUI()
             loadCredits()
-          } else if (res?.error) {
-            showNotification(`Sign-in failed: ${res.error}`, 'error')
+            showSettings()
+            activateSettingsPane('account')
           }
         } catch (err) {
           console.error('OAuth error:', err)
-          showNotification('Sign-in failed. Please try again.', 'error')
         }
       }
+    })
+  })
+
+  // Account settings pane actions
+  document.getElementById('account-upload-avatar-btn')?.addEventListener('click', () => openAvatarFile())
+
+  // Save profile (Display Name) — persists to main process via auth:set-user (real API), auto-saves
+  const accountNameInput = document.getElementById('account-name-input')
+  let nameSaveTimer = null
+  const persistProfile = () => {
+    if (!currentUser) currentUser = { name: '', email: '', picture: null, provider: 'custom' }
+    const name = (accountNameInput?.value || '').trim()
+    if (name) currentUser.name = name
+    localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
+    window.electron?.setUser?.(currentUser)
+    updateUserUI()
+  }
+  accountNameInput?.addEventListener('input', () => {
+    clearTimeout(nameSaveTimer)
+    nameSaveTimer = setTimeout(() => persistProfile(), 500)
+  })
+  accountNameInput?.addEventListener('blur', () => {
+    clearTimeout(nameSaveTimer)
+    persistProfile()
+  })
+  accountNameInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); accountNameInput.blur() }
+  })
+
+  document.getElementById('account-signout-btn')?.addEventListener('click', () => {
+    showConfirm(async () => {
+      saveCreditState()
+      currentUser = null
+      window.electron?.stopStream?.()
+      await window.electron?.signOut?.()
+      window.location.href = './signin.html'
+    }, {
+      title: 'Sign out?',
+      message: 'Are you sure you want to sign out?',
+      confirmLabel: 'Sign Out'
+    })
+  })
+
+  document.getElementById('account-clear-cache-btn')?.addEventListener('click', () => {
+    showConfirm(() => {
+      localStorage.removeItem('ai-credits-used')
+      localStorage.removeItem('ai-credits-limit')
+      localStorage.removeItem('ai-credits-reset')
+      creditUsed = 0
+      creditResetAt = Date.now() + RESET_INTERVAL
+      saveCreditState()
+      renderCreditMenu()
+    }, {
+      title: 'Clear local cache?',
+      message: 'This resets your local credits usage only. Your profile and sign-in are not affected.',
+      confirmLabel: 'Clear'
     })
   })
 
@@ -4002,18 +4338,15 @@ async function init() {
       updateUserUI()
       loadCredits()
     } else if (user && typeof user === 'object') {
-      currentUser = {
-        name: user.name || '',
-        email: user.email || '',
-        picture: user.picture || null,
-        provider: user.provider || 'google'
-      }
+      // Merge over existing so API profile updates never reset saved/extra fields
+      currentUser = { ...(currentUser || {}), ...user }
+      if (currentUser.provider === undefined) currentUser.provider = 'google'
       localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
       updateUserUI()
       loadCredits()
     } else if (!user) {
+      // Sign-out: keep account data in localStorage; only clear in-memory state.
       currentUser = null
-      localStorage.removeItem('cilamai-user')
       updateUserUI()
       loadCredits()
     }
@@ -4032,7 +4365,6 @@ async function init() {
       localStorage.setItem('cilamai-user', JSON.stringify(currentUser))
       window.electron?.setUser?.(currentUser)
       updateUserUI()
-      showNotification('Avatar image updated', 'info')
     }
   }
 
@@ -4062,7 +4394,6 @@ async function init() {
       window.electron?.setUser?.(currentUser)
       updateUserUI()
       loadCredits()
-      showNotification(`Profile updated via IPC`, 'info')
     } else if (command.startsWith('name:')) {
       const name = command.slice(5)
       if (!currentUser) currentUser = { name: '', email: '', picture: null, provider: 'ipc' }
@@ -4088,7 +4419,6 @@ async function init() {
     showConfirm(async () => {
       saveCreditState()
       currentUser = null
-      localStorage.removeItem('cilamai-user')
       window.electron?.stopStream?.()
       await window.electron?.signOut?.()
       window.location.href = './signin.html'
@@ -4110,12 +4440,25 @@ async function init() {
   document.addEventListener('model-context-change', (event) => updateContextWindow(event.detail))
   const limitedBanner = document.querySelector('.limited-banner')
   if (limitedBanner) limitedBanner.hidden = true
+  function syncComposerLimitBanner() {
+    const banner = document.querySelector('.composer-limit-banner')
+    if (!banner) return
+    banner.hidden = limitedBannerDismissed || creditUsed < creditLimit
+  }
+  document.addEventListener('credit-banner-sync', syncComposerLimitBanner)
+  document.querySelector('.composer-limit-close')?.addEventListener('click', () => {
+    limitedBannerDismissed = true
+    const banner = document.querySelector('.composer-limit-banner')
+    if (banner) banner.hidden = true
+  })
   setInterval(() => {
     if (Date.now() > creditResetAt) {
       creditResetAt = Date.now() + RESET_INTERVAL
       creditUsed = 0
       saveCreditState()
+      renderCreditMenu()
       if (limitedBanner) limitedBanner.hidden = true
+      syncComposerLimitBanner()
     }
   }, 1000)
 
@@ -4136,6 +4479,56 @@ async function init() {
     compInput.dispatchEvent(new Event('input', { bubbles: true }))
   })
 
+  const MAX_PASTE_IMAGE_MB = 10
+  document.querySelector('.composer-input')?.addEventListener('paste', (e) => {
+    const imageItems = Array.from(e.clipboardData?.items || []).filter(
+      (item) => item.kind === 'file' && item.type.startsWith('image/')
+    )
+    if (!imageItems.length) return
+    e.preventDefault()
+    const filesBox = document.querySelector('.composer-files')
+    if (!filesBox) return
+
+    imageItems.forEach((item) => {
+      const file = item.getAsFile()
+      if (!file) return
+      if (file.size > MAX_PASTE_IMAGE_MB * 1024 * 1024) {
+        return
+      }
+      const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace('svg+xml', 'svg')
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === 'string' ? reader.result : ''
+        const data = dataUrl.split(',')[1]
+        if (!data) return
+        const name = file.name && file.name !== 'image.png' ? file.name : `pasted-image-${Date.now()}.${ext}`
+        const pending = { name, data, ext }
+        const chip = document.createElement('div')
+        chip.className = 'file-chip'
+        chip.innerHTML = `
+          <img class="file-chip-thumb" src="data:${file.type};base64,${data}" alt="" />
+          <span class="file-chip-info">
+            <span class="file-chip-name"></span>
+            <span class="file-chip-size">${(file.size / 1024).toFixed(1)} KB</span>
+          </span>
+          <button type="button" class="file-chip-remove" aria-label="Remove">&times;</button>`
+        chip.querySelector('.file-chip-name').textContent = name
+        chip.querySelector('.file-chip-remove').addEventListener('click', () => {
+          chip.remove()
+          const idx = pendingImages.indexOf(pending)
+          if (idx !== -1) pendingImages.splice(idx, 1)
+          filesBox.hidden = pendingImages.length === 0
+          updateSendBtnState()
+        })
+        pendingImages.push(pending)
+        filesBox.append(chip)
+        filesBox.hidden = false
+        updateSendBtnState()
+      }
+      reader.readAsDataURL(file)
+    })
+  })
+
   document.querySelector('[data-upload]')?.addEventListener('click', async () => {
     if (attachMenu) attachMenu.hidden = true
     const result = await window.electron?.uploadFile?.()
@@ -4146,13 +4539,11 @@ async function init() {
     const ext = (result.name || '').split('.').pop().toLowerCase()
     const BLOCKED_EXTS = ['mp4', 'mp3', 'mkv', 'mov', 'avi', 'wav', 'flac', 'ogg', 'm4a', 'webm', 'exe', 'msi', 'bmp']
     if (BLOCKED_EXTS.includes(ext)) {
-      showWarning(`.${ext} files are not supported`)
       return
     }
     const MAX_IMAGE_MB = 10
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'avif'].includes(ext)) {
       if (result.size > MAX_IMAGE_MB * 1024 * 1024) {
-        showWarning(`Image too large: ${(result.size / 1024 / 1024).toFixed(1)} MB (max ${MAX_IMAGE_MB} MB)`)
         return
       }
       const chip = document.createElement('div')
@@ -4194,7 +4585,7 @@ async function init() {
     if (attachMenu) attachMenu.hidden = true
     const result = await window.electron?.captureScreenshot?.()
     if (!result?.ok) {
-      if (result?.error) showError(`Screenshot failed: ${result.error}`)
+      if (result?.error) console.error('Screenshot failed:', result.error)
       return
     }
     const filesBox = document.querySelector('.composer-files')
@@ -4231,6 +4622,7 @@ async function init() {
       return
     }
     closeAttachMenu(true)
+    restoreModelMenuAnchor()
     modelMenu.hidden = false
     if (!modelMenu.hidden) {
       modelMenu.style.top = 'auto'
@@ -4516,7 +4908,6 @@ async function init() {
     const keyInput = document.querySelector('#api-key')
     if (keyInput) keyInput.value = apiKey
     showConnectList()
-    showNotification(key ? `${CONNECT_PROVIDERS[target]?.name || 'Provider'} API key saved` : 'API key cleared', 'info')
     loadModels()
   }
 
@@ -4563,8 +4954,6 @@ async function init() {
       document.querySelector('[data-screenshot]')?.click()
     } else if (cmd === '/connect') {
       openConnectDialog()
-    } else {
-      showNotification(`Unknown slash command: ${cmd}. Use /upload, /screenshot, or /connect.`, 'error')
     }
   }
 
@@ -4736,7 +5125,6 @@ async function init() {
       input.classList.remove('empty')
       stopRecording(input)
       checkHotkeyConflicts()
-      showNotification(tf('hotkeySaved', 'Hotkey saved'), 'warning')
     }
     input._recorder = onKeyDown
     input.addEventListener('keydown', onKeyDown, true)
@@ -4778,7 +5166,6 @@ async function init() {
     settings.hotkeys = { ...hotkeys }
     localStorage.setItem('cilamai-settings', JSON.stringify(settings))
     renderHotkeys()
-    showNotification(tf('hotkeysReset', 'Hotkeys reset to defaults'), 'warning')
   })
 
   renderHotkeys()
@@ -4853,7 +5240,7 @@ async function init() {
     messages.push({ role: 'user', content: fullText, savedImages })
     suppressRetryForTurn = creditUsed >= creditLimit
     if (creditUsed >= creditLimit) {
-      limitedBanner.hidden = true
+      syncComposerLimitBanner()
       addErrorMessage(creditsExhaustedMessage(tf('limitedOutput', 'This is the limit of the free tier.')))
       saveSessions()
       return
@@ -4920,6 +5307,7 @@ async function init() {
     setStreaming(true)
     if (!(await checkInternet())) {
       setStreaming(false)
+      clearTypingIndicator(bubble)
       return
     }
     stopBtn?.addEventListener('click', () => {
@@ -4929,6 +5317,10 @@ async function init() {
     })
 
     try {
+      payloadMessages.unshift({
+        role: 'system',
+        content: "You are CilamAI, the AI assistant built into the CilamAI desktop app. When asked who you are, what you are, or what your name is, answer that you are CilamAI."
+      })
       if (requestsLiveWeb(text) && window.electron?.searchWebForAgent) {
         const search = await window.electron.searchWebForAgent(text)
         if (search?.ok && search.items?.length) {
@@ -5043,9 +5435,9 @@ async function init() {
             renderThinkingMarkdown(tb, reasoningContent)
             tb.scrollTop = tb.scrollHeight
           }
-          thinkingEl.removeAttribute('open')
-          thinkingEl.classList.remove('active')
-          bubble.classList.remove('reasoning')
+          finishThinkingBlock(thinkingEl)
+          bubble.classList.add('reasoning-done')
+          window.setTimeout(() => bubble.classList.remove('reasoning', 'reasoning-done'), 400)
           updateThinkingTime()
         }
       } else if (window.electron?.sendMessage) {
@@ -5107,6 +5499,7 @@ async function init() {
         
         thinkingEl = createThinkingBlock(false, false)
         thinkingEl.querySelector('.thinking-text').textContent = thinkingLabel(false, thinkingSeconds(reasoningMs))
+        thinkingEl.classList.add('done')
         renderThinkingMarkdown(thinkingEl.querySelector('.thinking-body'), reasoningContent)
         bubble.prepend(thinkingEl)
       }
@@ -5115,6 +5508,8 @@ async function init() {
       const responseContent = Array.isArray(responseMessage?.content)
         ? responseMessage.content.filter((part) => part?.type === 'text').map((part) => part.text || '').join('\n').trim()
         : (typeof responseMessage?.content === 'string' ? responseMessage.content.trim() : '')
+      const apiUsage = result?.diagnostics?.usage || null
+      const apiTokens = readUsageTokens(apiUsage)
       const bubbleText = Array.from(bubble.childNodes)
         .filter((node) => !(node.nodeType === 1 && node.classList?.contains('thinking')))
         .map((node) => node.textContent || '')
@@ -5151,8 +5546,8 @@ async function init() {
           assistantMessage.streamInterrupted = String(result.error || 'Stream interrupted')
         }
         if (reasoningContent.trim()) {
-          assistantMessage.reasoning = reasoningContent
-          
+          assistantMessage.reasoning = sanitizeReasoning(reasoningContent)
+
           if (reasoningMs > 0) assistantMessage.reasoningMs = reasoningMs
         }
         messages.push(assistantMessage)
@@ -5198,9 +5593,10 @@ async function init() {
       errorText.textContent = `Error: ${msg}`
       bubble.append(errorIcon, errorText)
       if (isRetryableError(raw)) attachRetryButton(bubble)
-      showError(tf('failedReplyWarning', 'Failed to get a reply from {{model}}').replace('{{model}}', getDisplayName(model) || model) + (msg ? `: ${msg}` : ''))
     } finally {
       setStreaming(false)
+      clearTypingIndicator(bubble)
+      if (stopped && bubble?.isConnected && !bubble.textContent.trim()) bubble.closest('.chat-row')?.remove()
       if (responseCompleted) window.electron?.streamEndNotify?.()
 
       if (thinkingTicker) {
@@ -5236,18 +5632,25 @@ async function init() {
   initCommandPalette()
   setupTooltips()
 
-  initFeedback()
   initUpdatePill()
+
+  window.dispatchEvent(new Event('cilamai:app-ready'))
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const remaining = Math.max(0, MIN_SPLASH_MS - (performance.now() - splashStartedAt))
     setTimeout(hideStartup, remaining)
   }))
 
+  const chatEl = document.querySelector('.chat')
+  if (chatEl) {
+    markdownImageObserver.observe(chatEl, { childList: true, subtree: true })
+    enhanceMarkdownImages(chatEl)
+  }
+
   document.addEventListener('click', async (e) => {
     const imageCopyButton = e.target.closest('.chat-image-copy')
     if (imageCopyButton) {
-      const image = imageCopyButton.closest('.chat-image-wrap')?.querySelector('.chat-image')
+      const image = imageCopyButton.closest('.chat-image-wrap, .md-image-wrap')?.querySelector('img')
       if (!image) return
       imageCopyButton.disabled = true
       try {
@@ -5275,109 +5678,6 @@ async function init() {
     const originalSVG = btn.innerHTML
     btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
     setTimeout(() => { btn.innerHTML = originalSVG }, 1500)
-  })
-  window.dispatchEvent(new Event('cilamai:app-ready'))
-}
-
-function initFeedback() {
-  const fv = document.querySelector('.feedback-view')
-  if (!fv) return
-
-  const typeRadios = fv.querySelectorAll('input[name="feedback-type"]')
-  const stepsGroup = fv.querySelector('#feedback-steps-group')
-  const msgInput = fv.querySelector('#feedback-message')
-  const attachTrigger = fv.querySelector('#feedback-attach-trigger')
-  const fileInput = fv.querySelector('#feedback-file-input')
-  const filePreview = fv.querySelector('#feedback-file-preview')
-  const removeFileBtn = fv.querySelector('#feedback-file-remove')
-  const previewFilename = fv.querySelector('.preview-filename')
-
-  typeRadios.forEach((radio) => {
-    radio.addEventListener('change', () => {
-      if (radio.value === 'bug') {
-        if (stepsGroup) stepsGroup.hidden = false
-        if (msgInput) msgInput.placeholder = localeData?.feedbackDescPlaceholder || 'Describe the bug you encountered...'
-      } else if (radio.value === 'feature') {
-        if (stepsGroup) stepsGroup.hidden = true
-        if (msgInput) msgInput.placeholder = 'Describe the feature you would like to see...'
-      } else if (radio.value === 'auth-billing') {
-        if (stepsGroup) stepsGroup.hidden = true
-        if (msgInput) msgInput.placeholder = 'Describe the authentication or billing issue...'
-      } else {
-        if (stepsGroup) stepsGroup.hidden = true
-        if (msgInput) msgInput.placeholder = 'Share your thoughts, suggestions, or experience...'
-      }
-    })
-  })
-
-  if (attachTrigger && fileInput) {
-    attachTrigger.addEventListener('click', () => fileInput.click())
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0]
-      if (file && filePreview && previewFilename) {
-        previewFilename.textContent = file.name
-        filePreview.hidden = false
-        attachTrigger.hidden = true
-      }
-    })
-  }
-
-  if (removeFileBtn && fileInput && filePreview && attachTrigger) {
-    removeFileBtn.addEventListener('click', () => {
-      fileInput.value = ''
-      filePreview.hidden = true
-      attachTrigger.hidden = false
-    })
-  }
-
-  fv.querySelectorAll('[data-action="close-feedback"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (window.location.hash === '#feedback') {
-        window.close()
-      } else {
-        showChat()
-      }
-    })
-  })
-
-  fv.querySelector('[data-action="open-github-issues"]')?.addEventListener('click', () => {
-    window.electron?.openExternal?.('https://github.com/XDev127/CilamAI/issues/new/choose')
-  })
-
-  const form = fv.querySelector('#feedback-form')
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault()
-      const msg = msgInput?.value?.trim()
-      if (!msg) return
-      showNotification(localeData?.feedbackSent || 'Thank you for your feedback!', 'success')
-      form.reset()
-      if (fileInput) fileInput.value = ''
-      if (filePreview) filePreview.hidden = true
-      if (attachTrigger) attachTrigger.hidden = false
-      if (stepsGroup) stepsGroup.hidden = false
-      if (window.location.hash === '#feedback') {
-        setTimeout(() => window.close(), 1000)
-      } else {
-        showChat()
-      }
-    })
-  }
-}
-
-if (window.location.hash === '#feedback') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const tb = document.querySelector('.titlebar')
-    const sb = document.querySelector('.sidebar')
-    const chat = document.querySelector('.chat')
-    const comp = document.querySelector('.composer')
-    const wt = document.querySelector('.welcome-mark')
-    if (tb) tb.style.display = 'none'
-    if (sb) sb.style.display = 'none'
-    if (chat) chat.style.display = 'none'
-    if (comp) comp.style.display = 'none'
-    if (wt) wt.style.display = 'none'
-    showFeedback()
   })
 }
 
@@ -5411,6 +5711,7 @@ const PANEL_MAX = 720
 const PANEL_MAIN_MIN = 360
 
 const sidebarWidthNow = () => {
+  if (document.body.classList.contains('sidebar-disabled')) return 0
   if (document.body.classList.contains('sidebar-collapsed')) return 56
   const raw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width'))
   return Number.isFinite(raw) ? raw : 248
@@ -5435,7 +5736,8 @@ function applyPanelWidth(w) {
 function fitPanelToViewport() {
   if (!document.body.classList.contains('panel-open')) return
   const room = window.innerWidth - sidebarWidthNow() - 5 - PANEL_MAIN_MIN
-  if (room < PANEL_MIN && !document.body.classList.contains('sidebar-collapsed')) {
+  const sidebarHidden = document.body.classList.contains('sidebar-disabled')
+  if (room < PANEL_MIN && !sidebarHidden && !document.body.classList.contains('sidebar-collapsed')) {
     document.body.classList.add('sidebar-collapsed')
     panelAutoCollapsedSidebar = true
   }

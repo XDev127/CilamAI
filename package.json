@@ -2,7 +2,7 @@
   "name": "cilamai",
   "productName": "CilamAI",
   "description": "Hi i'm CilamAI star=target",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "type": "module",
   "main": "out/main/index.js",
   "bin": {

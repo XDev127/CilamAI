@@ -20,7 +20,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          feedback: resolve(__dirname, 'src/renderer/feedback.html'),
           signin: resolve(__dirname, 'src/renderer/signin.html')
         }
       }

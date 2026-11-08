@@ -7,9 +7,6 @@
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./src/style.css" />
   <script>
-    // Seed the saved appearance before first paint so the splash (and the window
-    // background) never flash the default palette. main.js still owns the state
-    // afterwards; this only applies the same values earlier.
     (() => {
       try {
         const saved = JSON.parse(localStorage.getItem('cilamai-settings') || '{}')
@@ -269,6 +266,16 @@
       <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
     </symbol>
+    <symbol id="icon-help" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.3-2.7 4.1" />
+      <line x1="12" y1="17.6" x2="12.01" y2="17.6" />
+    </symbol>
+    <symbol id="icon-model" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <rect x="9" y="9" width="6" height="6" rx="1" />
+      <path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2" />
+    </symbol>
   </svg>
 
   <div class="startup-loading" id="startup-loading">
@@ -301,8 +308,9 @@
   </div>
 
   <div class="titlebar">
-    <span class="dev-badge" data-dev-badge hidden
-      title="Development build, running from the Electron dev server (npm run dev). Press F12 or Ctrl+Shift+I for DevTools.">DEV</span>
+    <span class="dev-badge" data-dev-badge
+      data-tooltip="Development build, running from the Electron dev server (npm run dev). Press F12 or Ctrl+Shift+I for DevTools."
+      hidden>DEV</span>
     <div class="titlebar-actions">
       <div class="tb-menu-item more-menu-wrap" data-menu="more">
         <button type="button" class="tb-action-btn" data-more-toggle aria-label="More" aria-haspopup="true" aria-expanded="false">
@@ -312,14 +320,13 @@
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="17" x2="20" y2="17" />
           </svg>
+          <span class="tb-badge-count" data-more-badge hidden>1</span>
         </button>
         <div class="tb-menu-dropdown more-dropdown">
           <button type="button" data-update aria-label="Update CilamAI" hidden><span class="tb-menu-label">Update</span></button>
           <hr data-update-sep hidden />
-          <button type="button" data-action="feedback"><span class="tb-menu-label">Feedback</span></button>
-          <hr />
           <button type="button" data-action="help"><span class="tb-menu-label">About CilamAI</span></button>
-          <button type="button" data-action="release-notes"><span class="tb-menu-label">Release Notes</span></button>
+          <button type="button" data-action="release-notes" hidden><span class="tb-menu-label">Release Notes</span></button>
         </div>
       </div>
       <button type="button" class="tb-action-btn" data-command-palette-toggle aria-label="Search commands" title="Search commands">
@@ -429,6 +436,14 @@
 
     <form class="composer">
       <div class="composer-files" hidden></div>
+      <div class="composer-limit-banner" hidden role="status">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <use href="#icon-16"></use>
+        </svg>
+        <span>You're out of credits</span>
+        <button type="button" class="composer-limit-close" aria-label="Dismiss">&times;</button>
+      </div>
       <div class="commands-menu" hidden>
         <button type="button" class="command-item" data-command="/upload">
           <span>upload</span><span class="command-desc">Attach a file</span>
@@ -494,6 +509,14 @@
           </div>
         </div>
         <div class="composer-spacer"></div>
+        <button type="button" class="composer-btn mic" data-mic-toggle aria-label="Voice input" title="Voice input">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+            <path d="M5 10v1a7 7 0 0 0 14 0v-1"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </button>
         <button type="submit" class="composer-btn send" aria-label="Send" hidden>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
@@ -501,9 +524,23 @@
           </svg>
         </button>
         <button type="button" class="composer-btn stop" aria-label="Stop" hidden>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <use href="#icon-23"></use>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <rect x="3" y="3" width="18" height="18" rx="5"></rect>
           </svg>
+        </button>
+      </div>
+      <div class="voice-recorder" hidden>
+        <button type="button" class="vr-cancel" data-voice-cancel aria-label="Cancel recording" title="Cancel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="vr-wave"><canvas class="vr-canvas" width="280" height="46"></canvas></div>
+        <span class="vr-timer">0:00</span>
+        <button type="button" class="vr-stop" data-voice-stop aria-label="Stop and transcribe" title="Stop">
+          <span class="vr-stop-square"></span>
         </button>
       </div>
     </form>
@@ -535,10 +572,29 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6 1.7 1.7 0 0 0 10 3.04V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.99a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
             <span>General</span>
           </button>
+          <button type="button" class="settings-nav-item" data-settings-target="account">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M20 21a8 8 0 0 0-16 0" />
+            </svg>
+            <span>Account</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-settings-target="usage">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 20h18" />
+              <rect x="5" y="11" width="3.4" height="6" rx="1" />
+              <rect x="10.3" y="7" width="3.4" height="10" rx="1" />
+              <rect x="15.6" y="13" width="3.4" height="4" rx="1" />
+            </svg>
+            <span>Usage</span>
+          </button>
           <button type="button" class="settings-nav-item" data-settings-target="appearance">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+              <circle cx="13.5" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
+              <circle cx="17.5" cy="10.5" r="0.6" fill="currentColor" stroke="none" />
+              <circle cx="8.5" cy="7.5" r="0.6" fill="currentColor" stroke="none" />
+              <circle cx="6.5" cy="12.5" r="0.6" fill="currentColor" stroke="none" />
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
             </svg>
             <span>Appearance</span>
           </button>
@@ -552,14 +608,6 @@
           <button type="button" class="settings-nav-item" data-settings-target="providers">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg>
             <span>Model providers</span>
-          </button>
-          <button type="button" class="settings-nav-item" data-settings-target="notifications">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <span>Notifications</span>
-          </button>
-          <button type="button" class="settings-nav-item" data-settings-target="memory">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg>
-            <span>Memory</span>
           </button>
           <button type="button" class="settings-nav-item" data-settings-target="worktrees">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-6 2.5-6 7.5"/></svg>
@@ -717,6 +765,104 @@
                         <input type="checkbox" id="shimmer-effect" checked />
                         <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
                       </label>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="account" hidden>
+                  <div class="settings-card">
+                    <div class="setting-field account-profile-field">
+                      <div class="account-avatar-left">
+                        <div class="account-avatar-preview" id="account-avatar-preview"></div>
+                        <div class="setting-field-info">
+                          <span class="setting-section">Profile Picture</span>
+                          <span class="setting-desc">Upload a custom profile image or use your provider avatar</span>
+                        </div>
+                      </div>
+                      <div class="account-avatar-actions">
+                        <button type="button" class="font-select-btn" id="account-upload-avatar-btn">Change Avatar</button>
+                      </div>
+                    </div>
+
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Display Name</span>
+                        <span class="setting-desc">Your public name across CilamAI</span>
+                      </div>
+                      <div class="account-input-group">
+                        <input type="text" class="setting-text-input account-input" id="account-name-input" placeholder="Your name" maxlength="50" />
+                      </div>
+                    </div>
+
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Email</span>
+                        <span class="setting-desc">The email associated with your signed-in account</span>
+                      </div>
+                      <span class="account-provider-label" id="account-email-label">Not set</span>
+                    </div>
+
+                  </div>
+
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Authentication Provider</span>
+                        <span class="setting-desc">Provider used to authenticate your session</span>
+                      </div>
+                      <span class="account-provider-label" id="account-provider-label">Google</span>
+                    </div>
+
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Sign Out</span>
+                        <span class="setting-desc">Sign out of your CilamAI session</span>
+                      </div>
+                      <button type="button" class="font-select-btn" id="account-signout-btn">Sign Out</button>
+                    </div>
+                  </div>
+
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Local Cache & Storage</span>
+                        <span class="setting-desc">Reset local credits usage only — profile and sign-in are kept</span>
+                      </div>
+                      <button type="button" class="font-select-btn" id="account-clear-cache-btn">Clear Local Cache</button>
+                    </div>
+                  </div>
+            </div>
+            <div class="settings-pane" data-settings-pane="usage" hidden>
+                  <div class="settings-card usage-limit-card">
+                    <div class="usage-limit">
+                      <div class="usage-limit-title" id="usage-limit-title">Daily Usage</div>
+                      <div class="usage-limit-meta">
+                        <span class="usage-limit-reset" id="usage-resets-in">Resets in —</span>
+                        <span class="usage-limit-left" id="usage-left-pct">100% left</span>
+                      </div>
+                      <div class="usage-limit-bar" id="usage-limit-bar" role="progressbar" aria-label="Credits remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                        <div class="usage-limit-fill" id="usage-left-fill"></div>
+                      </div>
+                      <div class="usage-limit-sub">
+                        <span class="usage-limit-desc">usage resets automatically</span>
+                        <span class="usage-plan-badge" id="usage-plan">Free</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-card">
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Cycle</span>
+                        <span class="setting-desc">How often your credits refill</span>
+                      </div>
+                      <span class="account-provider-label" id="usage-cycle">24 hours</span>
+                    </div>
+                    <div class="setting-field">
+                      <div class="setting-field-info">
+                        <span class="setting-section">Refills on</span>
+                        <span class="setting-desc">Exact date and time of the next reset</span>
+                      </div>
+                      <span class="account-provider-label" id="usage-reset">—</span>
                     </div>
                   </div>
             </div>
@@ -1224,6 +1370,74 @@
                             <span class="theme-card-name">Vercel Light</span>
                           </div>
                         </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="kilo-dark" />
+                          <div class="theme-preview" data-theme-preview="kilo-dark">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Kilo Dark</span>
+                          </div>
+                        </label>
+                        <label class="theme-card">
+                          <input type="radio" name="theme" value="kilo-light" />
+                          <div class="theme-preview" data-theme-preview="kilo-light">
+                            <div class="tp-titlebar">
+                              <span class="tp-dots"><i></i><i></i><i></i></span>
+                              <span class="tp-chip"></span>
+                              <span class="tp-bar grow"></span>
+                              <span class="tp-chip tp-chip-end"></span>
+                            </div>
+                            <div class="tp-body">
+                              <div class="tp-rail">
+                                <span class="tp-bar w70"></span>
+                                <span class="tp-bar w50"></span>
+                                <span class="tp-bar w60"></span>
+                                <span class="tp-bar w40"></span>
+                                <span class="tp-bar w55"></span>
+                              </div>
+                              <div class="tp-canvas">
+                                <span class="tp-bar w55"></span>
+                                <span class="tp-bar w85"></span>
+                                <span class="tp-bar w40 red"></span>
+                                <span class="tp-bar w60 green"></span>
+                                <span class="tp-bar w75"></span>
+                                <span class="tp-bar w45"></span>
+                                <span class="tp-bar w65 accentline"></span>
+                                <span class="tp-bar w50"></span>
+                              </div>
+                            </div>
+                            <div class="tp-strip"></div>
+                          </div>
+                          <div class="theme-card-meta">
+                            <span class="theme-card-name">Kilo Light</span>
+                          </div>
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -1271,123 +1485,6 @@
                 </div>
               </div>
           </div>
-            <div class="settings-pane" data-settings-pane="notifications" hidden>
-          
-                  <div class="settings-card">
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="notificationsEnable">Enable Notifications</span>
-                        <span class="setting-desc" data-i18n="notificationsEnableDesc">Show desktop notifications for events</span>
-                      </div>
-                      <label class="setting-check">
-                        <input type="checkbox" id="notifications-enable" checked />
-                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
-                      </label>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="notificationsSound">Notification Sound</span>
-                        <span class="setting-desc" data-i18n="notificationsSoundDesc">Play a sound when notifications appear</span>
-                      </div>
-                      <label class="setting-check">
-                        <input type="checkbox" id="notifications-sound" />
-                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
-                      </label>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="notificationsDuration">Duration</span>
-                        <span class="setting-desc" data-i18n="notificationsDurationDesc">How long notifications stay visible</span>
-                      </div>
-                      <div class="setting-segmented">
-                        <button type="button" class="segmented-btn" data-segmented="notifications-duration" data-value="3">3s</button>
-                        <button type="button" class="segmented-btn active" data-segmented="notifications-duration" data-value="6">6s</button>
-                        <button type="button" class="segmented-btn" data-segmented="notifications-duration" data-value="10">10s</button>
-                      </div>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="notificationsPosition">Position</span>
-                        <span class="setting-desc" data-i18n="notificationsPositionDesc">Where notifications appear on screen</span>
-                      </div>
-                      <div class="setting-segmented">
-                        <button type="button" class="segmented-btn active" data-segmented="notifications-position" data-value="top-right">Top Right</button>
-                        <button type="button" class="segmented-btn" data-segmented="notifications-position" data-value="bottom-right">Bottom Right</button>
-                      </div>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="notificationsTest">Test Notification</span>
-                        <span class="setting-desc" data-i18n="notificationsTestDesc">Send a sample notification</span>
-                      </div>
-                      <button type="button" class="font-select-btn" id="notifications-test-btn">
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                        </svg>
-                        <span data-i18n="sendTest">Send Test</span>
-                      </button>
-                    </div>
-                  </div>
-            </div>
-            <div class="settings-pane" data-settings-pane="memory" hidden>
-          
-                  <div class="settings-card">
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="memoryEnable">Enable Memory</span>
-                        <span class="setting-desc" data-i18n="memoryEnableDesc">Allow the AI to remember context across conversations</span>
-                      </div>
-                      <label class="setting-check">
-                        <input type="checkbox" id="memory-enable" />
-                        <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
-                      </label>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="memoryStatus">Memory Status</span>
-                        <span class="setting-desc" data-i18n="memoryStatusDesc">Current memory usage</span>
-                      </div>
-                      <span class="setting-status" id="memory-status">0 entries · 0 tokens</span>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="memoryContextWindow">Context Window</span>
-                        <span class="setting-desc" data-i18n="memoryContextWindowDesc">Maximum tokens to keep in memory</span>
-                      </div>
-                      <div class="setting-number">
-                        <input type="number" id="memory-context-window" class="setting-number-input" value="200000" min="1000" max="1000000" step="1000" />
-                        <span class="setting-number-unit">tokens</span>
-                      </div>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="memoryRetention">Memory Retention</span>
-                        <span class="setting-desc" data-i18n="memoryRetentionDesc">How long to keep memories</span>
-                      </div>
-                      <div class="setting-segmented">
-                        <button type="button" class="segmented-btn active" data-segmented="memory-retention" data-value="session">Session</button>
-                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="7days">7 Days</button>
-                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="30days">30 Days</button>
-                        <button type="button" class="segmented-btn" data-segmented="memory-retention" data-value="forever">Forever</button>
-                      </div>
-                    </div>
-                    <div class="setting-field">
-                      <div class="setting-field-info">
-                        <span class="setting-section" data-i18n="memoryClear">Clear Memory</span>
-                        <span class="setting-desc" data-i18n="memoryClearDesc">Remove all stored memories</span>
-                      </div>
-                      <button type="button" class="setting-danger-btn" id="memory-clear-btn">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6M14 11v6" />
-                        </svg>
-                        <span data-i18n="clearMemory">Clear All Memory</span>
-                      </button>
-                    </div>
-                  </div>
-            </div>
             <div class="settings-pane" data-settings-pane="worktrees" hidden>
           
                   <div class="settings-card">
@@ -1429,91 +1526,6 @@
             </div>
           </div>
         </div>
-      </div>
-    </section>
-
-
-
-    <section class="feedback-view" hidden>
-      <div class="feedback-panel">
-        <div class="feedback-header">
-          <h2 data-i18n="provideFeedback">Provide Feedback</h2>
-        </div>
-
-        <form class="feedback-form" id="feedback-form">
-          <div class="feedback-group">
-            <label class="feedback-group-label" data-i18n="feedbackType">Feedback Type</label>
-            <div class="feedback-radio-list">
-              <label class="feedback-radio-item">
-                <input type="radio" name="feedback-type" value="bug" checked />
-                <span class="feedback-radio-custom"></span>
-                <span data-i18n="bugReport">Bug Report</span>
-              </label>
-              <label class="feedback-radio-item">
-                <input type="radio" name="feedback-type" value="feature" />
-                <span class="feedback-radio-custom"></span>
-                <span data-i18n="featureRequest">Feature Request</span>
-              </label>
-              <label class="feedback-radio-item">
-                <input type="radio" name="feedback-type" value="auth-billing" />
-                <span class="feedback-radio-custom"></span>
-                <span data-i18n="authBilling">Auth and Billing</span>
-              </label>
-              <label class="feedback-radio-item">
-                <input type="radio" name="feedback-type" value="general" />
-                <span class="feedback-radio-custom"></span>
-                <span data-i18n="generalFeedback">General Feedback</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="feedback-group">
-            <label class="feedback-group-label" data-i18n="description">Description</label>
-            <p class="feedback-guide-text" data-i18n="feedbackGuide">
-              Please describe the issue in detail. The more actionable your feedback, the quicker our team can address your request. Some helpful information includes:
-            </p>
-            <ul class="feedback-guide-list">
-              <li data-i18n="guideSteps">Steps to reproduce the issue</li>
-              <li data-i18n="guideExpected">Expected behavior</li>
-              <li data-i18n="guideActual">Actual behavior</li>
-              <li data-i18n="guideErrors">Any error messages</li>
-              <li data-i18n="guideRelevant">Any relevant information</li>
-            </ul>
-            <textarea id="feedback-message" class="feedback-textarea" rows="5" required data-i18n-placeholder="feedbackDescPlaceholder" placeholder="Describe the bug you encountered..."></textarea>
-          </div>
-
-          <div class="feedback-group" id="feedback-steps-group">
-            <label class="feedback-group-label" data-i18n="stepsToReproduce">Steps to Reproduce</label>
-            <textarea id="feedback-steps" class="feedback-textarea" rows="3" data-i18n-placeholder="stepsPlaceholder" placeholder="Please list the steps to reproduce the issue"></textarea>
-          </div>
-
-          <div class="feedback-group">
-            <button type="button" class="feedback-attach-btn" id="feedback-attach-trigger">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-              </svg>
-              <span data-i18n="attachScreenshot">Attach a screenshot (optional)</span>
-            </button>
-            <input type="file" id="feedback-file-input" accept="image/*" hidden />
-            <div id="feedback-file-preview" class="feedback-file-preview" hidden>
-              <span class="preview-filename"></span>
-              <button type="button" class="preview-remove-btn" id="feedback-file-remove">&times;</button>
-            </div>
-          </div>
-
-          <div class="feedback-actions">
-            <button type="button" class="feedback-github-btn" data-action="open-github-issues">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <use href="#icon-32"></use>
-              </svg>
-              <span data-i18n="githubIssues">GitHub Issues</span>
-            </button>
-            <div class="feedback-actions-right">
-              <button type="button" class="feedback-cancel-btn" data-action="close-feedback" data-i18n="cancel">Cancel</button>
-              <button type="submit" class="feedback-submit-btn primary" data-i18n="sendFeedback">Send Feedback</button>
-            </div>
-          </div>
-        </form>
       </div>
     </section>
 
@@ -1570,7 +1582,7 @@
                 <span class="release-version-date">August 12, 2026</span>
               </div>
               <h4>First release</h4>
-              <p class="release-para"><strong>New:</strong> The initial release of the CilamAI desktop chat application: real-time streaming responses, file uploads, screenshot capture, session search and history, model selection, credit and usage tracking with a 24-hour reset, notifications, and a help menu with keyboard shortcuts.</p>
+              <p class="release-para"><strong>New:</strong> The initial release of the CilamAI desktop chat application: real-time streaming responses, file uploads, screenshot capture, session search and history, model selection, credit and usage tracking with a 24-hour reset, and a help menu with keyboard shortcuts.</p>
               <h4>Customization</h4>
               <p class="release-para"><strong>Added:</strong> Multiple themes (Dark, Light, System, Blue, Red, Yellow, Green and Black), adjustable chat text size, customizable hotkeys with reset to defaults, and a launch-on-startup option.</p>
               <h4>Multi-language</h4>
@@ -1667,7 +1679,7 @@
         <img src="./favicon.ico" alt="" class="about-dialog-icon" />
         <div class="about-dialog-id">
           <h2 class="about-dialog-title" id="about-dialog-title">CilamAI</h2>
-          <span class="about-dialog-version"><span data-i18n="version">Version</span> 0.1.1</span>
+          <span class="about-dialog-version"><span data-i18n="version">Version</span> <span data-about-version></span></span>
         </div>
       </div>
       <div class="about-dialog-section">
@@ -1722,9 +1734,6 @@
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
           </svg>
           <span data-i18n="continueWithGoogle">Continue with Google</span>
-        </button>
-        <button type="button" class="auth-provider-btn auth-provider-outline" data-auth-close>
-          <span data-i18n="signInAnotherWay">Sign in another way</span>
         </button>
       </div>
 
@@ -1803,12 +1812,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="notification" role="alert" hidden>
-    <svg class="notification-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
-    <span class="notification-msg"></span>
   </div>
 
   <div class="fatal-error-screen" role="alert" hidden>

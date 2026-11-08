@@ -1,7 +1,9 @@
-import { app, ipcMain, shell, BrowserWindow, WebContentsView, dialog, Menu, net, session, clipboard, nativeImage, screen, nativeTheme } from "electron";
+import { app, ipcMain, shell, BrowserWindow, WebContentsView, dialog, Menu, net, session, clipboard, nativeImage, screen, nativeTheme, safeStorage } from "electron";
 import { join, resolve } from "node:path";
 import { writeFile, readFile } from "node:fs/promises";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, createWriteStream, openSync, readSync, closeSync, rmSync } from "node:fs";
 import os from "node:os";
 import https from "node:https";
 import { execSync, spawn } from "node:child_process";
@@ -141,8 +143,38 @@ function buildChatBody({ model, messages, stream, provider, reasoningEffort }) {
       const budget = effort === "low" ? 1024 : effort === "medium" ? 8192 : effort === "high" ? 16384 : 32768;
       body.thinking = { type: "enabled", budget_tokens: budget };
     }
+    // Ask OpenAI-compatible endpoints for the real usage block so token counts
+    // and timings come from the API instead of being estimated locally.
+    if (stream && !/claude/i.test(String(model))) {
+      body.stream_options = { include_usage: true };
+    }
   }
   return body;
+}
+
+function extractChatUsage(data) {
+  if (!data || typeof data !== "object") return null;
+  const src = data.usage && typeof data.usage === "object" ? data.usage : {};
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const completion = num(src.completion_tokens) ?? num(src.output_tokens) ?? num(data.eval_count);
+  const prompt = num(src.prompt_tokens) ?? num(src.input_tokens) ?? num(data.prompt_eval_count);
+  const total = num(src.total_tokens) ?? (completion && prompt ? completion + prompt : undefined);
+  const cost = num(src.total_cost) ?? num(src.cost) ?? num(data.cost);
+  const usage = {};
+  if (completion) usage.completion_tokens = completion;
+  if (prompt) usage.prompt_tokens = prompt;
+  if (total) usage.total_tokens = total;
+  if (cost) usage.cost = cost;
+  const evalDuration = num(data.eval_duration);
+  if (evalDuration) usage.eval_duration_ms = Math.round(evalDuration / 1e6);
+  const loadDuration = num(data.load_duration);
+  if (loadDuration) usage.load_duration_ms = Math.round(loadDuration / 1e6);
+  const totalDuration = num(data.total_duration);
+  if (totalDuration) usage.total_duration_ms = Math.round(totalDuration / 1e6);
+  return Object.keys(usage).length ? usage : null;
 }
 
 async function chatSend({ url, model, messages, provider, apiKey, org, reasoningEffort, envConfig: envConfig2 }) {
@@ -196,26 +228,28 @@ async function chatSend({ url, model, messages, provider, apiKey, org, reasoning
       ok: true,
       data: { message: { content }, reasoning },
       diagnostics: {
-        usage: data?.usage,
+        usage: extractChatUsage(data),
         finish_reason: data?.choices?.[0]?.finish_reason || data?.done_reason
       }
     };
   }
 }
 async function chatSendStream({ url, model, messages, provider, apiKey, org, reasoningEffort, envConfig: envConfig2 }, { signal, onChunk, onReasoning }) {
+  const requestStartedAt = Date.now();
   const headers = buildHeaders({ model, apiKey, envConfig: envConfig2 });
   const isOpenAI = isOpenAiCompat(provider);
   const body = buildChatBody({ model, messages, stream: true, provider, reasoningEffort });
   let attempt = 0;
   const maxAttempts = 5;
+  const doFetch = () => fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body)
+  });
   let res;
   while (true) {
     try {
-      res = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
-      });
+      res = await doFetch();
     } catch (err) {
       const msg = err.message || "Network error";
       if (attempt < maxAttempts - 1 && /ssl|handshake|certificate|network|econnreset|etimedout|enotfound/i.test(msg)) {
@@ -226,6 +260,17 @@ async function chatSendStream({ url, model, messages, provider, apiKey, org, rea
       return { ok: false, error: msg };
     }
     if (!res.ok) {
+      // Some OpenAI-compatible servers reject stream_options; retry without it
+      // so the request still succeeds (usage simply stays unavailable).
+      if (res.status === 400 && body.stream_options) {
+        delete body.stream_options;
+        try {
+          res = await doFetch();
+          if (res.ok) break;
+        } catch (err) {
+          return { ok: false, error: err.message };
+        }
+      }
       const text = await res.text().catch(() => '')
       let data = null;
       try { data = text ? JSON.parse(text) : null } catch { data = null }
@@ -243,6 +288,11 @@ async function chatSendStream({ url, model, messages, provider, apiKey, org, rea
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let streamUsage = null;
+  const noteUsage = (chunk) => {
+    const usage = extractChatUsage(chunk);
+    if (usage) streamUsage = { ...(streamUsage || {}), ...usage };
+  };
   const contentRouter = createContentRouter(onChunk, onReasoning);
   let aborted = false;
   if (signal) {
@@ -277,6 +327,7 @@ async function chatSendStream({ url, model, messages, provider, apiKey, org, rea
           const reasoning = collectReasoning(delta);
           if (reasoning) onReasoning(reasoning);
           routeContent(delta?.content);
+          noteUsage(chunk);
         }
       } else {
         let chunk;
@@ -288,11 +339,16 @@ async function chatSendStream({ url, model, messages, provider, apiKey, org, rea
         const reasoning = collectReasoning(chunk.message);
         if (reasoning) onReasoning(reasoning);
         routeContent(chunk.message?.content);
+        noteUsage(chunk);
       }
     }
   }
   contentRouter.flush();
-  return aborted ? { ok: true, aborted: true } : { ok: true };
+  const diagnostics = {
+    usage: streamUsage,
+    totalMs: Date.now() - requestStartedAt
+  };
+  return aborted ? { ok: true, aborted: true, diagnostics } : { ok: true, diagnostics };
 }
 async function webFetchStream(url, { signal, onChunk, onReasoning }) {
   let res;
@@ -334,6 +390,19 @@ try {
   }
 } catch {
 }
+
+function refreshEnvFromFile(keys) {
+  try {
+    const envPath = join(app.getAppPath(), ".env");
+    if (!existsSync(envPath)) return;
+    for (const line of readFileSync(envPath, "utf8").split("\n")) {
+      const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
+      if (m && keys.includes(m[1])) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, "");
+    }
+  } catch {
+  }
+}
+
 function getGoogleClientId() {
   return (process.env.GOOGLE_CLIENT_ID || "").trim();
 }
@@ -405,6 +474,10 @@ async function oauthFetch(url, options = {}) {
 const OAUTH_BIND_HOST = "127.0.0.1";
 const OAUTH_PORTS = Array.from({ length: 11 }, (_, i) => 3e3 + i);
 const OAUTH_TIMEOUT_MS = 5 * 60 * 1e3;
+// How long a single redirect URI candidate is given before the sign-up falls
+// back to the other loopback form (Google shows a mismatch error page instead
+// of redirecting, so a silent fallback is the only way to recover).
+const OAUTH_CANDIDATE_TIMEOUT_MS = 30e3;
 function describeOAuthRedirectError(rawError, redirectUri) {
   const msg = String(rawError || "");
   if (/redirect_uri_mismatch|redirect_uri\b.*mismatch|invalid_grant|incorrect_redirect_uri/i.test(msg)) {
@@ -416,6 +489,21 @@ function describeOAuthRedirectError(rawError, redirectUri) {
   }
   return msg;
 }
+// Google compares the redirect URI literally: "http://localhost:3000" and
+// "http://127.0.0.1:3000" are two different URIs. The loopback callback server
+// answers to both, so the sign-up tries the configured URI first and falls back
+// to the other form instead of dying on "Error 400: redirect_uri_mismatch".
+function redirectUriCandidates(port, configured = "") {
+  const list = [];
+  const push = (value) => {
+    const uri = (value || "").trim();
+    if (uri && !list.includes(uri)) list.push(uri);
+  };
+  push(configured);
+  push(`http://${OAUTH_BIND_HOST}:${port}`);
+  push(`http://localhost:${port}`);
+  return list;
+}
 function resolveOAuthCallback() {
   const configured = (process.env.OAUTH_REDIRECT_URI || "").trim();
   if (configured) {
@@ -423,15 +511,27 @@ function resolveOAuthCallback() {
       const url = new URL(configured);
       if (!/^https?:$/.test(url.protocol)) throw new Error("must be an http(s) URI");
       if (!url.port) throw new Error("must include an explicit port");
-      return { ports: [Number(url.port)], pinned: true, redirectFor: () => configured };
+      return {
+        ports: [Number(url.port)],
+        pinned: true,
+        redirectFor: () => configured,
+        candidatesFor: (port) => redirectUriCandidates(port, configured)
+      };
     } catch (err) {
       console.warn(`[OAuth] Ignoring invalid OAUTH_REDIRECT_URI (${err.message}): ${configured}`);
     }
   }
+  // Google requires an EXACT redirect URI registered in the OAuth client.
+  // Use one fixed port so it is registerable (register http://127.0.0.1:3000 in Google Cloud).
+  const port = 3000;
+  console.log(
+    `[OAuth] Google redirect URI: http://${OAUTH_BIND_HOST}:${port} (register this exact value in Google Cloud, or set OAUTH_REDIRECT_URI to use a different port)`
+  );
   return {
-    ports: OAUTH_PORTS,
-    pinned: false,
-    redirectFor: (port) => `http://${OAUTH_BIND_HOST}:${port}`
+    ports: [port],
+    pinned: true,
+    redirectFor: () => `http://${OAUTH_BIND_HOST}:${port}`,
+    candidatesFor: (port) => redirectUriCandidates(port)
   };
 }
 const streamControllers = new Map();
@@ -634,9 +734,16 @@ ipcMain.handle("app:platform-info", () => ({
   isWindows11
 }));
 ipcMain.handle("app:get-version", () => app.getVersion());
-ipcMain.handle("app:copy-image-to-clipboard", (_event, dataUrl) => {
+ipcMain.handle("app:copy-image-to-clipboard", async (_event, source) => {
   try {
-    const image = nativeImage.createFromDataURL(dataUrl);
+    let image;
+    if (typeof source === "string" && /^https?:\/\//i.test(source)) {
+      const response = await net.fetch(source);
+      if (!response.ok) return { ok: false, error: `Image download failed (HTTP ${response.status})` };
+      image = nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
+    } else {
+      image = nativeImage.createFromDataURL(source);
+    }
     if (image.isEmpty()) return { ok: false, error: "Image is empty" };
     clipboard.writeImage(image);
     return { ok: true };
@@ -727,19 +834,100 @@ ipcMain.handle("app:check-updates", async () => {
     }
   });
 
-  ipcMain.handle("app:download-and-install", async (_event, downloadUrl) => {
-    const fs = require("node:fs");
-    const { Readable } = require("node:stream");
-    const { pipeline } = require("node:stream/promises");
-    const tempDir = app.getPath("temp");
-    const fileName = `CilamAI-Update-${Date.now()}.exe`;
-    const filePath = join(tempDir, fileName);
+  const NSIS_SETUP_URL = "https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe";
+  // electron-builder ships the updates as an NSIS setup executable:
+  // /S installs silently, --updated skips the wizard pages and keeps the user
+  // data, --force-run starts the freshly installed app when the install is done.
+  const NSIS_INSTALLER_ARGS = ["/S", "--updated", "--force-run"];
+  const NSIS_INSTALLER_MIN_SIZE = 256 * 1024;
+  const UPDATE_QUIT_DELAY_MS = 400;
+  const HELPER_EXIT_TIMEOUT_MS = 60e3;
+
+  const escapePowerShell = (value) => String(value).replace(/'/g, "''");
+
+  // Waits until this process is gone so the helper never touches the files of
+  // a still running app.
+  const waitForExitScript = (pid) => [
+    `$deadline = (Get-Date).AddSeconds(${Math.round(HELPER_EXIT_TIMEOUT_MS / 1000)})`,
+    `while ((Get-Date) -lt $deadline) {`,
+    `if (-not (Get-Process -Id ${pid} -ErrorAction SilentlyContinue)) { break }`,
+    `Start-Sleep -Milliseconds 200`,
+    `}`
+  ].join(" ");
+
+  // Runs a PowerShell snippet in a detached helper process so it survives the
+  // shutdown of the app.
+  const spawnDetachedHelper = (script) => {
+    try {
+      const helper = spawn("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", script], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true
+      });
+      helper.unref();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Restarts the app once this process is gone.
+  const spawnRelaunchHelper = () => {
+    const script = [
+      "$ErrorActionPreference = 'SilentlyContinue'",
+      waitForExitScript(process.pid),
+      `Start-Process -FilePath '${escapePowerShell(process.execPath)}'`
+    ].join("; ");
+    return spawnDetachedHelper(script);
+  };
+
+  // Installs the update with the NSIS installer and lets the installer start
+  // the new build. The installer is only started after this process exited so
+  // the installed files can be replaced without killing the app mid write.
+  const spawnInstallerHelper = (installerPath) => {
+    const args = NSIS_INSTALLER_ARGS.map((arg) => `'${escapePowerShell(arg)}'`).join(",");
+    const script = [
+      "$ErrorActionPreference = 'SilentlyContinue'",
+      waitForExitScript(process.pid),
+      `Start-Process -FilePath '${escapePowerShell(installerPath)}' -ArgumentList ${args} -Wait`
+    ].join("; ");
+    if (spawnDetachedHelper(script)) return true;
+    // No PowerShell available: run the installer right away. It waits for the
+    // running app to exit on its own and replaces the files itself.
+    try {
+      const installer = spawn(installerPath, NSIS_INSTALLER_ARGS, { detached: true, stdio: "ignore", windowsHide: true });
+      installer.unref();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const isWindowsExecutable = (filePath) => {
+    try {
+      if (statSync(filePath).size < NSIS_INSTALLER_MIN_SIZE) return false;
+      const fd = openSync(filePath, "r");
+      try {
+        const header = Buffer.alloc(2);
+        readSync(fd, header, 0, 2, 0);
+        return header.toString("latin1") === "MZ";
+      } finally {
+        closeSync(fd);
+      }
+    } catch {
+      return false;
+    }
+  };
+
+  // Downloads the NSIS setup executable of the latest release and returns the
+  // path of the installer, or null when the download failed.
+  const downloadNsisInstaller = async (downloadUrl) => {
+    const filePath = join(app.getPath("temp"), `CilamAI-Setup-${Date.now()}.exe`);
     const candidateUrls = [
       downloadUrl,
-      "https://github.com/XDev127/CilamAI/releases/latest/download/CilamAI-Setup.exe",
+      NSIS_SETUP_URL,
       `https://github.com/XDev127/CilamAI/releases/download/v${app.getVersion()}/CilamAI-Setup.exe`
     ].filter(Boolean);
-    let downloaded = false;
     for (const url of candidateUrls) {
       try {
         const controller = new AbortController();
@@ -750,34 +938,70 @@ ipcMain.handle("app:check-updates", async () => {
             redirect: "follow",
             signal: controller.signal
           });
-          if (response.ok && response.body) {
-            const fileStream = fs.createWriteStream(filePath);
-            await pipeline(Readable.fromWeb(response.body), fileStream);
-            downloaded = true;
-            break;
-          }
+          if (!response.ok || !response.body) continue;
+          await pipeline(Readable.fromWeb(response.body), createWriteStream(filePath));
         } finally {
           clearTimeout(timer);
         }
-      } catch (e) {
+        // A failed download can leave an error page behind, never run
+        // something that is not a Windows executable.
+        if (!isWindowsExecutable(filePath)) {
+          rmSync(filePath, { force: true });
+          continue;
+        }
+        return filePath;
+      } catch {
+        // try the next mirror
       }
     }
-    if (downloaded) {
-      try {
-        const launcher = require("node:child_process").spawn(
-          "cmd.exe",
-          ["/c", `timeout /t 2 /nobreak >nul && start "" /wait "${filePath}" /S`],
-          { detached: true, stdio: "ignore", windowsHide: true }
-        );
-        launcher.unref();
-        setTimeout(() => app.quit(), 400);
-        return { ok: true };
-      } catch (e) {
-      }
+    rmSync(filePath, { force: true });
+    return null;
+  };
+
+  const quitForUpdate = () => {
+    try {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) win.hide();
+      });
+    } catch {
+      // the window is already gone
     }
+    // Give the renderer a moment to flush its state before the app goes away.
+    setTimeout(() => app.quit(), UPDATE_QUIT_DELAY_MS);
+  };
+
+  // Downloads the latest release, installs it with the NSIS installer and
+  // restarts the app afterwards.
+  const installUpdateAndRelaunch = async (downloadUrl) => {
+    if (process.platform !== "win32") {
+      return { ok: false, error: "Automatic updates are only available on Windows" };
+    }
+    if (process.env.PORTABLE_EXECUTABLE_FILE) {
+      // The portable build is not installed through NSIS, it cannot be updated
+      // in place.
+      return { ok: false, error: "The portable build cannot be updated in place" };
+    }
+    const installerPath = await downloadNsisInstaller(downloadUrl);
+    if (!installerPath) {
+      return { ok: false, error: "Could not download the update" };
+    }
+    if (!spawnInstallerHelper(installerPath)) {
+      return { ok: false, error: "Could not start the installer" };
+    }
+    quitForUpdate();
+    return { ok: true, restarting: true };
+  };
+
+  ipcMain.handle("app:download-and-install", async (_event, downloadUrl) => {
+    const result = await installUpdateAndRelaunch(downloadUrl);
+    if (result.ok) return result;
     const targetUrl = downloadUrl || "https://github.com/XDev127/CilamAI/releases/latest";
     shell.openExternal(targetUrl);
     return { ok: true, openedInBrowser: true };
+  });
+
+  ipcMain.handle("app:update-and-relaunch", async (_event, downloadUrl) => {
+    return await installUpdateAndRelaunch(downloadUrl);
   });
   let currentTheme = "system";
   const themeFile = () => join(app.getPath("userData"), "theme.json");
@@ -990,6 +1214,30 @@ ipcMain.handle("app:check-updates", async () => {
       return { ok: false, error: err.message, devices: [] };
     }
   });
+  ipcMain.handle("voice:transcribe", async (_event, { url, apiKey, model, mimeType, filename, data }) => {
+    if (!url) return { ok: false, error: "Missing transcription endpoint." };
+    try {
+      const buf = Buffer.from(data);
+      const form = new FormData();
+      const blob = new Blob([buf], { type: mimeType || "audio/webm" });
+      form.append("file", blob, filename || "voice.webm");
+      form.append("model", model || "whisper-1");
+      const headers = {};
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+      const res = await fetch(url, { method: "POST", headers, body: form });
+      const raw = await res.text().catch(() => "");
+      let json = null;
+      try { json = raw ? JSON.parse(raw) : null } catch { json = null }
+      if (!res.ok) {
+        const detail = json?.error?.message || (typeof json?.error === "string" ? json.error : null) || raw || `HTTP ${res.status}`;
+        return { ok: false, error: `${res.status}: ${detail}`.slice(0, 500) };
+      }
+      const text = json?.text ?? (typeof json === "string" ? json : "");
+      return { ok: true, text: String(text || "") };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
   function getMemoryFile() {
     return join(app.getPath("userData"), "memory.json");
   }
@@ -1131,118 +1379,6 @@ ipcMain.handle("app:check-updates", async () => {
       return { ok: false, error: err.message };
     }
   });
-  function getNotifSettingsFile() {
-    return join(app.getPath("userData"), "notifications.json");
-  }
-  function loadNotifSettings() {
-    try {
-      const file = getNotifSettingsFile();
-      if (existsSync(file)) {
-        return JSON.parse(readFileSync(file, "utf8"));
-      }
-    } catch {
-    }
-    return { enabled: true, sound: false, duration: 6, position: "top-right" };
-  }
-  function saveNotifSettings(settings) {
-    try {
-      writeFileSync(getNotifSettingsFile(), JSON.stringify(settings, null, 2), "utf8");
-    } catch (err) {
-      console.error("Failed to save notification settings:", err);
-    }
-  }
-  ipcMain.handle("notifications:get", () => {
-    try {
-      return { ok: true, settings: loadNotifSettings() };
-    } catch (err) {
-      return { ok: false, error: err.message, settings: { enabled: true, sound: false, duration: 6, position: "top-right" } };
-    }
-  });
-  ipcMain.handle("notifications:set-enabled", (_event, enabled) => {
-    try {
-      const settings = loadNotifSettings();
-      settings.enabled = !!enabled;
-      saveNotifSettings(settings);
-      return { ok: true, enabled: settings.enabled };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-  ipcMain.handle("notifications:set-sound", (_event, sound) => {
-    try {
-      const settings = loadNotifSettings();
-      settings.sound = !!sound;
-      saveNotifSettings(settings);
-      return { ok: true, sound: settings.sound };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-  ipcMain.handle("notifications:set-duration", (_event, duration) => {
-    try {
-      const settings = loadNotifSettings();
-      const dur = Number(duration);
-      if (![3, 6, 10].includes(dur)) {
-        return { ok: false, error: "Duration must be 3, 6, or 10 seconds" };
-      }
-      settings.duration = dur;
-      saveNotifSettings(settings);
-      return { ok: true, duration: settings.duration };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-  ipcMain.handle("notifications:set-position", (_event, position) => {
-    try {
-      const valid = ["top-right", "bottom-right"];
-      const settings = loadNotifSettings();
-      settings.position = valid.includes(position) ? position : "top-right";
-      saveNotifSettings(settings);
-      return { ok: true, position: settings.position };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-  ipcMain.handle("notifications:show", (_event, { title, message, type }) => {
-    try {
-      const settings = loadNotifSettings();
-      if (!settings.enabled) return { ok: false, error: "Notifications are disabled" };
-      const { Notification } = require("electron");
-      if (Notification.isSupported()) {
-        const notif = new Notification({
-          title: title || "CilamAI",
-          body: message || "",
-          silent: !settings.sound
-        });
-        notif.show();
-        if (settings.sound) playNotificationSound(type || "info");
-        return { ok: true };
-      }
-      return { ok: false, error: "Notifications not supported" };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-  function playNotificationSound(type) {
-    try {
-      const { spawn } = require("node:child_process");
-      if (process.platform === "win32") {
-        const soundMap = { info: "Asterisk", error: "Hand", warning: "Exclamation" };
-        const sound = soundMap[type] || "Default";
-        try {
-          spawn("powershell", ["-c", `[System.Media.SystemSounds]::${sound}.Play()`], { detached: true, stdio: "ignore" }).unref();
-        } catch {
-          spawn("rundll32", ["user32.dll,MessageBeep", type === "error" ? "MB_ICONERROR" : type === "warning" ? "MB_ICONWARNING" : "MB_ICONINFORMATION"], { detached: true, stdio: "ignore" }).unref();
-        }
-      } else if (process.platform === "darwin") {
-        const sounds = { info: "Pop", error: "Basso", warning: "Funk" };
-        spawn("afplay", [`/System/Library/Sounds/${sounds[type] || "Pop"}.aiff`], { detached: true, stdio: "ignore" }).unref();
-      } else {
-        spawn("paplay", ["/usr/share/sounds/freedesktop/stereo/message.oga"], { detached: true, stdio: "ignore" }).unref();
-      }
-    } catch {
-    }
-  }
   ipcMain.handle("app:context-window-boost", async (_event, enabled) => {
     try {
       return {
@@ -1392,6 +1528,26 @@ ipcMain.handle("app:check-updates", async () => {
     saveCreditsStore(store);
     return true;
   }
+  function resetUsageForCurrentUser() {
+    try {
+      const key = currentUserKey();
+      const user = currentAuthUser || loadStoredAuthUser();
+      const config = getUserCreditConfig(user || key);
+      const store = loadCreditsStore();
+      const saved = store[key] || {};
+      store[key] = {
+        ...saved,
+        used: 0,
+        limit: config.limit,
+        resetAt: Date.now() + config.resetInterval
+      };
+      saveCreditsStore(store);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+  ipcMain.handle("credits:reset", () => resetUsageForCurrentUser());
   ipcMain.handle("credits:get", () => {
     const key = currentUserKey();
     const user = currentAuthUser || loadStoredAuthUser();
@@ -1683,13 +1839,24 @@ ipcMain.handle("app:check-updates", async () => {
     }
     return { ok: false, error: "No window found" };
   });
-  ipcMain.handle("app:restart", () => {
+  // Restarts the app. A detached helper takes over the relaunch so the app
+  // really comes back, even when the graceful quit is delayed.
+  const restartApp = () => {
+    if (app.isPackaged && process.platform === "win32" && spawnRelaunchHelper()) {
+      app.quit();
+      return;
+    }
     app.relaunch();
     app.quit();
+  };
+  ipcMain.handle("app:restart", () => {
+    restartApp();
     return { ok: true };
   });
   ipcMain.handle("window:open-devtools", (event) => {
+    if (app.isPackaged) return { ok: false };
     BrowserWindow.fromWebContents(event.sender)?.webContents.openDevTools();
+    return { ok: true };
   });
 
   let streamEndBadge = null;
@@ -2109,32 +2276,240 @@ ipcMain.handle("app:check-updates", async () => {
     } catch {
     }
   }
-  function applyAndSaveUser(user) {
-    let userObj = null;
-    if (user && typeof user === "string") {
-      userObj = parseUserString(user);
-    } else if (user && typeof user === "object") {
-      userObj = {
-        name: user.name || "",
-        email: user.email || "",
-        picture: user.picture || null,
-        provider: user.provider || "google"
-      };
+  // Real OAuth token session storage (encrypted with safeStorage when available)
+  let currentAuthTokens = null;
+  let signedIn = false;
+  // A session is active when OAuth tokens are on disk. Deriving this (instead of
+  // relying on a per-process flag) keeps the account alive across app restarts.
+  const isSessionActive = () => signedIn || Boolean(getStoredTokens());
+  function tokenStorePath() {
+    return join(app.getPath("userData"), "auth_tokens.bin");
+  }
+  function saveStoredTokens(tokens) {
+    try {
+      const p = tokenStorePath();
+      if (!tokens) {
+        if (existsSync(p)) unlinkSync(p);
+        currentAuthTokens = null;
+        return;
+      }
+      const json = JSON.stringify(tokens);
+      if (safeStorage && safeStorage.isEncryptionAvailable && safeStorage.isEncryptionAvailable()) {
+        writeFileSync(p, safeStorage.encryptString(json));
+      } else {
+        writeFileSync(p, json, "utf8");
+      }
+      currentAuthTokens = tokens;
+    } catch (err) {
+      console.error("[OAuth] Failed to save tokens:", err);
     }
-    currentAuthUser = userObj;
-    saveStoredAuthUser(userObj);
-    BrowserWindow.getAllWindows().forEach((win) => {
-      win.webContents.send("auth:user", userObj);
+  }
+  function loadStoredTokens() {
+    try {
+      const p = tokenStorePath();
+      if (!existsSync(p)) return null;
+      const raw = readFileSync(p);
+      try {
+        const text = raw.toString("utf8");
+        if (text.trim().startsWith("{")) return JSON.parse(text);
+      } catch {
+      }
+      if (safeStorage && safeStorage.isEncryptionAvailable && safeStorage.isEncryptionAvailable()) {
+        return JSON.parse(safeStorage.decryptString(raw).toString("utf8"));
+      }
+      return JSON.parse(raw.toString("utf8"));
+    } catch {
+      return null;
+    }
+  }
+  function getStoredTokens() {
+    if (!currentAuthTokens) currentAuthTokens = loadStoredTokens();
+    return currentAuthTokens;
+  }
+  const TOKEN_EXPIRY_SKEW_MS = 60e3;
+  function isTokenExpired(tokens) {
+    if (!tokens) return true;
+    if (!tokens.expires_at) return false;
+    return Date.now() >= Number(tokens.expires_at) - TOKEN_EXPIRY_SKEW_MS;
+  }
+  // Google access tokens live for about an hour. The stored refresh token keeps
+  // the signed-in account alive, so the session is renewed through the API
+  // instead of forcing the user through the consent screen again.
+  async function refreshStoredTokens() {
+    const tokens = getStoredTokens();
+    if (!tokens?.refresh_token || tokens.provider !== "google") return null;
+    const clientId = getGoogleClientId();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+    if (!clientId || !clientSecret) return null;
+    try {
+      const tokenRes = await oauthFetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: tokens.refresh_token,
+          grant_type: "refresh_token"
+        })
+      });
+      const data = await tokenRes.json();
+      if (data?.error || !data?.access_token) {
+        console.error("[OAuth] Token refresh failed:", data?.error || "no access token");
+        if (/invalid_grant|invalid_client|unauthorized_client/i.test(String(data?.error || ""))) {
+          // The stored grant is dead: drop the refresh token so the next sign-up
+          // asks for consent again instead of failing silently later on.
+          saveStoredTokens({ ...tokens, refresh_token: null });
+        }
+        return null;
+      }
+      const refreshed = {
+        ...tokens,
+        access_token: data.access_token,
+        scope: data.scope || tokens.scope || "",
+        id_token: data.id_token || tokens.id_token || null,
+        expires_at: data.expires_in ? Date.now() + data.expires_in * 1000 : null
+      };
+      saveStoredTokens(refreshed);
+      return refreshed;
+    } catch (err) {
+      console.warn("[OAuth] Token refresh failed:", err?.message || err);
+      return null;
+    }
+  }
+  async function ensureFreshTokens() {
+    const tokens = getStoredTokens();
+    if (!tokens) return null;
+    if (!isTokenExpired(tokens)) return tokens;
+    return (await refreshStoredTokens()) || tokens;
+  }
+  // Restore the previous session instead of clearing it: the signed-in account
+  // and its profile must survive app restarts.
+  function restoreStoredSession() {
+    const tokens = getStoredTokens();
+    const user = loadStoredAuthUser();
+    if (tokens) {
+      currentAuthTokens = tokens;
+      signedIn = true;
+    }
+    if (user) currentAuthUser = user;
+    return { tokens, user };
+  }
+  // Pull the account data straight from the provider API. Only missing fields
+  // are filled in, so local edits (custom display name, uploaded avatar) and
+  // already stored data are never removed.
+  let accountSyncInFlight = null;
+  function syncAccountProfileFromApi() {
+    if (accountSyncInFlight) return accountSyncInFlight;
+    accountSyncInFlight = performAccountProfileSync().finally(() => {
+      accountSyncInFlight = null;
     });
-    return userObj;
+    return accountSyncInFlight;
+  }
+  async function performAccountProfileSync() {
+    const tokens = await ensureFreshTokens();
+    if (!tokens?.access_token) return null;
+    let profile = null;
+    try {
+      if (tokens.provider === "google") {
+        const res = await oauthFetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+            "User-Agent": "CilamAI/1.0"
+          }
+        });
+        if (res.ok) profile = await res.json();
+      } else if (tokens.provider === "github") {
+        const res = await oauthFetch("https://api.github.com/user", {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "CilamAI/1.0"
+          }
+        });
+        if (res.ok) profile = await res.json();
+      }
+    } catch (err) {
+      console.warn("[Auth] Account data sync failed:", err?.message || err);
+      return null;
+    }
+    if (!profile) return null;
+    const existing = currentAuthUser || loadStoredAuthUser() || {};
+    const incoming = { provider: tokens.provider || existing.provider || "google" };
+    if (profile.name) incoming.name = profile.name;
+    else if (profile.given_name) incoming.name = `${profile.given_name} ${profile.family_name || ""}`.trim();
+    else if (profile.login) incoming.name = profile.login;
+    if (profile.email) incoming.email = profile.email;
+    if (profile.picture) incoming.picture = profile.picture;
+    else if (profile.avatar_url) incoming.picture = profile.avatar_url;
+    if (profile.sub) incoming.providerId = profile.sub;
+    else if (profile.id) incoming.providerId = String(profile.id);
+    if (!incoming.email && tokens.provider === "github" && tokens.access_token) {
+      try {
+        const emailRes = await oauthFetch("https://api.github.com/user/emails", {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "CilamAI/1.0"
+          }
+        });
+        const emails = await emailRes.json();
+        if (Array.isArray(emails)) {
+          const primary = emails.find((e) => e.primary) || emails[0];
+          if (primary?.email) incoming.email = primary.email;
+        }
+      } catch (err) {
+        console.warn("[Auth] Account data sync failed:", err?.message || err);
+      }
+    }
+    const merged = { ...existing };
+    for (const key of Object.keys(incoming)) {
+      const value = incoming[key];
+      if (value === undefined || value === null || value === "") continue;
+      if (!merged[key]) merged[key] = value;
+    }
+    if (!merged.name && merged.email) merged.name = merged.email.split("@")[0];
+    return applyAndSaveUser(merged);
+  }
+  function applyAndSaveUser(user) {
+    let incoming = null;
+    if (user && typeof user === "string") {
+      incoming = parseUserString(user);
+    } else if (user && typeof user === "object") {
+      incoming = user;
+    } else {
+      return currentAuthUser;
+    }
+    // Merge over the existing stored profile so partial updates never reset saved data
+    // and any extra profile fields are preserved (not just name/email/picture/provider).
+    const existing = currentAuthUser || loadStoredAuthUser() || {};
+    const merged = { ...existing };
+    for (const key of Object.keys(incoming)) {
+      if (incoming[key] === undefined) continue;
+      merged[key] = incoming[key];
+    }
+    if (merged.provider === undefined) merged.provider = "google";
+    currentAuthUser = merged;
+    saveStoredAuthUser(currentAuthUser);
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send("auth:user", currentAuthUser);
+    });
+    return currentAuthUser;
   }
   ipcMain.handle("auth:get-user", async () => {
+    if (!isSessionActive()) return null;
     if (!currentAuthUser) {
       currentAuthUser = loadStoredAuthUser();
     }
+    // Re-add the account data from the provider API in the background. The
+    // stored account itself is never removed.
+    syncAccountProfileFromApi().catch(() => {});
     return currentAuthUser;
   });
   ipcMain.on("auth:get-user-sync", (event) => {
+    if (!isSessionActive()) { event.returnValue = null; return; }
     if (!currentAuthUser) {
       currentAuthUser = loadStoredAuthUser();
     }
@@ -2155,6 +2530,7 @@ ipcMain.handle("app:check-updates", async () => {
         const base64Url = (buf) => buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
         const codeVerifier = base64Url(crypto.randomBytes(32));
         const codeChallenge = base64Url(crypto.createHash("sha256").update(codeVerifier).digest());
+        refreshEnvFromFile(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "OAUTH_REDIRECT_URI"]);
         const clientId = getGoogleClientId();
         if (!clientId) {
           console.warn("[OAuth] GOOGLE_CLIENT_ID is not set in .env - Google sign-in is disabled.");
@@ -2170,8 +2546,19 @@ ipcMain.handle("app:check-updates", async () => {
         return await new Promise((_resolve) => {
           let lastRedirectUri = "";
           let redirectUri = null;
+          let candidateIndex = 0;
+          let candidates = [];
+          const candidateStates = new Map();
+          let candidateTimer = null;
+          const clearCandidateTimer = () => {
+            if (candidateTimer) {
+              clearTimeout(candidateTimer);
+              candidateTimer = null;
+            }
+          };
           const timeoutId = setTimeout(() => {
             console.error("[OAuth] Timed out waiting for the browser callback");
+            clearCandidateTimer();
             try {
               oauthHttpServer?.close();
             } catch {
@@ -2184,13 +2571,49 @@ ipcMain.handle("app:check-updates", async () => {
           }, OAUTH_TIMEOUT_MS);
           const resolve = (value) => {
             clearTimeout(timeoutId);
+            clearCandidateTimer();
             _resolve(value);
           };
           let oauthPort = 3e3;
+          // Google refuses a redirect URI that is not registered exactly. When
+          // that happens the browser only shows an "Error 400" page, so the
+          // sign-up retries with the other loopback form on its own.
+          const advanceCandidate = (reason) => {
+            clearCandidateTimer();
+            if (candidateIndex + 1 >= candidates.length) return false;
+            candidateIndex += 1;
+            redirectUri = candidates[candidateIndex];
+            lastRedirectUri = redirectUri;
+            console.warn(`[OAuth] ${reason}. Retrying sign-in with redirect_uri=${redirectUri}`);
+            openAuthUrl();
+            return true;
+          };
+          const openAuthUrl = () => {
+            const state = crypto.randomBytes(16).toString("hex");
+            candidateStates.set(state, redirectUri);
+            // access_type=offline makes Google hand back a refresh token so the
+            // account session can be renewed through the API instead of being
+            // dropped and signed up again. The consent screen is only forced
+            // while no refresh token is stored.
+            const needsConsent = !getStoredTokens()?.refresh_token;
+            const prompt = needsConsent ? "select_account%20consent" : "select_account";
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("openid email profile")}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&access_type=offline&include_granted_scopes=true&state=${encodeURIComponent(state)}&prompt=${prompt}`;
+            console.log(`[OAuth] Opening Google sign-in with redirect_uri=${redirectUri}`);
+            shell.openExternal(authUrl);
+            clearCandidateTimer();
+            candidateTimer = setTimeout(() => {
+              candidateTimer = null;
+              advanceCandidate("No callback received for the current redirect URI");
+            }, OAUTH_CANDIDATE_TIMEOUT_MS);
+          };
           oauthHttpServer = http2.createServer(async (req, res) => {
             const urlObj = new URL(req.url, `http://127.0.0.1:${oauthPort}`);
             const code = urlObj.searchParams.get("code");
             const error = urlObj.searchParams.get("error");
+            const state = urlObj.searchParams.get("state");
+            // The code is bound to the redirect URI that produced it, so a
+            // fallback attempt never invalidates the code that just arrived.
+            const codeRedirectUri = (state && candidateStates.get(state)) || redirectUri;
             if (error) {
               res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
               res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Sign-In Cancelled</h2><p style="color:#888;">You can close this window and return to CilamAI.</p></div><script>setTimeout(()=>window.close(),1500)<\/script></body></html>`);
@@ -2203,6 +2626,7 @@ ipcMain.handle("app:check-updates", async () => {
               return;
             }
             if (code) {
+              let retrying = false;
               try {
                 console.log("[OAuth] Exchanging code for tokens...");
                 const tokenRes = await oauthFetch("https://oauth2.googleapis.com/token", {
@@ -2217,13 +2641,21 @@ ipcMain.handle("app:check-updates", async () => {
                     code,
                     code_verifier: codeVerifier,
                     grant_type: "authorization_code",
-                    redirect_uri: redirectUri
+                    redirect_uri: codeRedirectUri
                   })
                 });
                 const tokenData = await tokenRes.json();
                 console.log("[OAuth] Token data received:", tokenData.error || "SUCCESS");
                 if (tokenData.error) {
                   console.error("[OAuth] Google token exchange failed:", tokenData.error, tokenData.error_description || "");
+                  const rawError = `${tokenData.error} ${tokenData.error_description || ""}`;
+                  if (/redirect_uri_mismatch|invalid_grant|incorrect_redirect_uri/i.test(rawError) && advanceCandidate("Google rejected the redirect URI")) {
+                    // The callback server stays up: the retry reuses it.
+                    retrying = true;
+                    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                    res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Retrying sign-in...</h2><p style="color:#888;">A new tab was opened in your browser. You can close this one.</p></div></body></html>`);
+                    return;
+                  }
                   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
                   res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Sign-In Failed</h2><p style="color:#888;">${tokenData.error}</p><p style="color:#888;">Close this tab and check CilamAI for details.</p></div></body></html>`);
                   try {
@@ -2231,12 +2663,13 @@ ipcMain.handle("app:check-updates", async () => {
                   } catch {
                   }
                   oauthHttpServer = null;
-                  resolve({ ok: false, error: describeOAuthRedirectError(tokenData.error_description || tokenData.error, redirectUri) });
+                  resolve({ ok: false, error: describeOAuthRedirectError(tokenData.error_description || tokenData.error, codeRedirectUri) });
                   return;
                 }
                 let userName = "";
                 let userEmail = "";
                 let userPicture = null;
+                let userProviderId = null;
                 if (tokenData.id_token) {
                   try {
                     const base64Payload = tokenData.id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -2244,6 +2677,7 @@ ipcMain.handle("app:check-updates", async () => {
                     userName = payload.name || (payload.given_name ? `${payload.given_name} ${payload.family_name || ""}`.trim() : "") || payload.preferred_username || "";
                     userEmail = payload.email || "";
                     userPicture = payload.picture || null;
+                    userProviderId = payload.sub || null;
                   } catch (e) {
                     console.error("[OAuth] ID token decode error:", e);
                   }
@@ -2262,6 +2696,7 @@ ipcMain.handle("app:check-updates", async () => {
                       else if (profile.given_name) userName = `${profile.given_name} ${profile.family_name || ""}`.trim();
                       if (profile.email) userEmail = profile.email;
                       if (profile.picture) userPicture = profile.picture;
+                      if (profile.sub) userProviderId = profile.sub;
                     }
                   } catch (e) {
                     console.error("[OAuth] Userinfo fetch error:", e);
@@ -2274,10 +2709,24 @@ ipcMain.handle("app:check-updates", async () => {
                   name: userName || userEmail.split("@")[0],
                   email: userEmail,
                   picture: userPicture,
-                  provider: "google"
+                  provider: "google",
+                  providerId: userProviderId
                 };
                 currentAuthUser = userObj;
                 saveStoredAuthUser(userObj);
+                signedIn = true;
+                // Keep a refresh token that is already stored: Google only sends a
+                // new one when the consent screen was shown, and dropping it would
+                // end the session an hour later.
+                const storedRefreshToken = getStoredTokens()?.refresh_token || null;
+                saveStoredTokens({
+                  provider: "google",
+                  access_token: tokenData.access_token || null,
+                  refresh_token: tokenData.refresh_token || storedRefreshToken,
+                  scope: tokenData.scope || "",
+                  id_token: tokenData.id_token || null,
+                  expires_at: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null
+                });
                 BrowserWindow.getAllWindows().forEach((win) => {
                   win.webContents.send("auth:user", userObj);
                 });
@@ -2339,13 +2788,15 @@ ipcMain.handle("app:check-updates", async () => {
                 res.end(`<html><body style="background:#171717;"><script>window.close()<\/script></body></html>`);
                 resolve({ ok: false, error: err.message });
               } finally {
-                setTimeout(() => {
-                  try {
-                    oauthHttpServer?.close();
-                  } catch {
-                  }
-                  oauthHttpServer = null;
-                }, 2e3);
+                if (!retrying) {
+                  setTimeout(() => {
+                    try {
+                      oauthHttpServer?.close();
+                    } catch {
+                    }
+                    oauthHttpServer = null;
+                  }, 2e3);
+                }
               }
               return;
             }
@@ -2382,9 +2833,11 @@ ipcMain.handle("app:check-updates", async () => {
                 }
               });
               oauthHttpServer.listen(port, OAUTH_BIND_HOST, () => {
-                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("openid email profile")}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&prompt=select_account%20consent`;
-                console.log(`[OAuth] Opening Google sign-in with redirect_uri=${redirectUri}`);
-                shell.openExternal(authUrl);
+                candidates = callback.candidatesFor ? callback.candidatesFor(port) : [redirectUri];
+                candidateIndex = 0;
+                redirectUri = candidates[0] || redirectUri;
+                lastRedirectUri = redirectUri;
+                openAuthUrl();
               });
             };
             tryNextPort();
@@ -2393,6 +2846,7 @@ ipcMain.handle("app:check-updates", async () => {
         });
       } else if (provider === "github") {
         const http2 = await import("node:http");
+        const crypto = await import("node:crypto");
         if (oauthHttpServer) {
           try {
             oauthHttpServer.close();
@@ -2408,13 +2862,88 @@ ipcMain.handle("app:check-updates", async () => {
             error: "GitHub sign-in is not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env, then restart CilamAI."
           };
         }
-        return await new Promise((resolve) => {
+        // An explicit callback URL is registered as-is in the GitHub OAuth app,
+        // so the sign-up lands on the exact URI that was allowed.
+        let pinnedRedirect = null;
+        let pinnedPort = null;
+        const configuredRedirect = (process.env.GITHUB_REDIRECT_URI || "").trim();
+        if (configuredRedirect) {
+          try {
+            const url = new URL(configuredRedirect);
+            if (/^https?:$/.test(url.protocol) && url.port) {
+              pinnedRedirect = configuredRedirect;
+              pinnedPort = Number(url.port);
+            }
+          } catch {
+          }
+        }
+        return await new Promise((rawResolve) => {
+          let settled = false;
           let oauthPort = 3e3;
           let redirectUri = null;
+          let candidateIndex = 0;
+          let candidates = [];
+          const candidateStates = new Map();
+          let candidateTimer = null;
+          let lastRedirectUri = "";
+          const clearCandidateTimer = () => {
+            if (candidateTimer) {
+              clearTimeout(candidateTimer);
+              candidateTimer = null;
+            }
+          };
+          // Every exit goes through this helper, so the pending timers are
+          // always cleared and no extra browser tab is opened afterwards.
+          const resolve = (value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            clearCandidateTimer();
+            rawResolve(value);
+          };
+          const timeoutId = setTimeout(() => {
+            console.error("[OAuth] Timed out waiting for the browser callback");
+            try {
+              oauthHttpServer?.close();
+            } catch {
+            }
+            oauthHttpServer = null;
+            resolve({
+              ok: false,
+              error: `Sign-in timed out. Register this exact redirect URI on the OAuth client: ${lastRedirectUri}`
+            });
+          }, OAUTH_TIMEOUT_MS);
+          // GitHub compares the callback URL literally, so the other loopback
+          // form is tried as well when the first one is not registered.
+          const advanceCandidate = (reason) => {
+            clearCandidateTimer();
+            if (candidateIndex + 1 >= candidates.length) return false;
+            candidateIndex += 1;
+            redirectUri = candidates[candidateIndex];
+            lastRedirectUri = redirectUri;
+            console.warn(`[OAuth] ${reason}. Retrying sign-in with redirect_uri=${redirectUri}`);
+            openAuthUrl();
+            return true;
+          };
+          const openAuthUrl = () => {
+            const state = crypto.randomBytes(16).toString("hex");
+            candidateStates.set(state, redirectUri);
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("read:user user:email")}&state=${encodeURIComponent(state)}`;
+            console.log(`[OAuth] Opening GitHub sign-in with redirect_uri=${redirectUri}`);
+            shell.openExternal(authUrl);
+            clearCandidateTimer();
+            candidateTimer = setTimeout(() => {
+              candidateTimer = null;
+              advanceCandidate("No callback received for the current redirect URI");
+            }, OAUTH_CANDIDATE_TIMEOUT_MS);
+          };
           oauthHttpServer = http2.createServer(async (req, res) => {
             const urlObj = new URL(req.url, `http://127.0.0.1:${oauthPort}`);
             const code = urlObj.searchParams.get("code");
             const error = urlObj.searchParams.get("error");
+            const state = urlObj.searchParams.get("state");
+            // The code is bound to the redirect URI that produced it.
+            const codeRedirectUri = (state && candidateStates.get(state)) || redirectUri;
             if (error) {
               res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
               res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Sign-In Cancelled</h2><p style="color:#888;">You can close this window and return to CilamAI.</p></div><script>setTimeout(()=>window.close(),1500)<\/script></body></html>`);
@@ -2427,6 +2956,7 @@ ipcMain.handle("app:check-updates", async () => {
               return;
             }
             if (code) {
+              let retrying = false;
               try {
                 console.log("[OAuth] Exchanging GitHub code for token...");
                 const tokenRes = await oauthFetch("https://github.com/login/oauth/access_token", {
@@ -2440,14 +2970,22 @@ ipcMain.handle("app:check-updates", async () => {
                     client_id: clientId,
                     client_secret: process.env.GITHUB_CLIENT_SECRET || "",
                     code,
-                    redirect_uri: redirectUri
+                    redirect_uri: codeRedirectUri
                   })
                 });
                 const tokenData = await tokenRes.json();
                 console.log("[OAuth] GitHub token received:", tokenData.error || "SUCCESS");
                 if (tokenData.error) {
                   console.error("[OAuth] GitHub token exchange failed:", tokenData.error, tokenData.error_description || "");
-                  resolve({ ok: false, error: describeOAuthRedirectError(tokenData.error_description || tokenData.error, redirectUri) });
+                  const rawError = `${tokenData.error} ${tokenData.error_description || ""}`;
+                  if (/redirect_uri_mismatch|incorrect_redirect_uri/i.test(rawError) && advanceCandidate("GitHub rejected the redirect URI")) {
+                    // The callback server stays up: the retry reuses it.
+                    retrying = true;
+                    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                    res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Retrying sign-in...</h2><p style="color:#888;">A new tab was opened in your browser. You can close this one.</p></div></body></html>`);
+                    return;
+                  }
+                  resolve({ ok: false, error: describeOAuthRedirectError(tokenData.error_description || tokenData.error, codeRedirectUri) });
                   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
                   res.end(`<!DOCTYPE html><html><body style="background:#0f0f13;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Sign-In Failed</h2><p style="color:#888;">${tokenData.error}</p></div></body></html>`);
                   return;
@@ -2490,10 +3028,16 @@ ipcMain.handle("app:check-updates", async () => {
                   name: profile.name || profile.login || userEmail.split("@")[0] || "GitHub User",
                   email: userEmail,
                   picture: profile.avatar_url || null,
-                  provider: "github"
+                  provider: "github",
+                  providerId: profile.id ? String(profile.id) : null
                 };
                 currentAuthUser = userObj;
                 saveStoredAuthUser(userObj);
+                signedIn = true;
+                saveStoredTokens({
+                  provider: "github",
+                  access_token: accessToken || null
+                });
                 BrowserWindow.getAllWindows().forEach((win) => {
                   win.webContents.send("auth:user", userObj);
                 });
@@ -2543,13 +3087,15 @@ ipcMain.handle("app:check-updates", async () => {
                 res.end(`<html><body style="background:#171717;"><script>window.close()<\/script></body></html>`);
                 resolve({ ok: false, error: err.message });
               } finally {
-                setTimeout(() => {
-                  try {
-                    oauthHttpServer?.close();
-                  } catch {
-                  }
-                  oauthHttpServer = null;
-                }, 2e3);
+                if (!retrying) {
+                  setTimeout(() => {
+                    try {
+                      oauthHttpServer?.close();
+                    } catch {
+                    }
+                    oauthHttpServer = null;
+                  }, 2e3);
+                }
               }
               return;
             }
@@ -2557,7 +3103,7 @@ ipcMain.handle("app:check-updates", async () => {
             res.end();
           });
           const listenWithRetry = () => {
-            const ports = Array.from({ length: 11 }, (_, i) => 3011 + i);
+            const ports = pinnedPort ? [pinnedPort] : Array.from({ length: 11 }, (_, i) => 3011 + i);
             let portIndex = 0;
             const tryNextPort = () => {
               if (portIndex >= ports.length) {
@@ -2567,7 +3113,7 @@ ipcMain.handle("app:check-updates", async () => {
               }
               const port = ports[portIndex++];
               oauthPort = port;
-              redirectUri = `http://127.0.0.1:${port}`;
+              redirectUri = pinnedRedirect || `http://127.0.0.1:${port}`;
               oauthHttpServer.once("error", (err) => {
                 if (err.code === "EADDRINUSE" && portIndex < ports.length) {
                   console.warn(`[OAuth] Port ${port} busy, trying next...`);
@@ -2582,8 +3128,15 @@ ipcMain.handle("app:check-updates", async () => {
                 }
               });
               oauthHttpServer.listen(port, "127.0.0.1", () => {
-                const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("read:user user:email")}`;
-                shell.openExternal(authUrl);
+                // Both loopback forms reach this server, so the sign-up can fall
+                // back to the other form when only one of them is registered.
+                candidates = [redirectUri];
+                const alternate = `http://localhost:${port}`;
+                if (alternate !== redirectUri) candidates.push(alternate);
+                candidateIndex = 0;
+                redirectUri = candidates[0];
+                lastRedirectUri = redirectUri;
+                openAuthUrl();
               });
             };
             tryNextPort();
@@ -2607,12 +3160,42 @@ ipcMain.handle("app:check-updates", async () => {
     }
   });
   ipcMain.handle("auth:sign-out", async () => {
+    const tokens = getStoredTokens();
+    let revoked = false;
+    try {
+      if (tokens?.access_token && (tokens.provider === "google" || currentAuthUser?.provider === "google")) {
+        const res = await oauthFetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(tokens.access_token)}`, {
+          method: "POST",
+          headers: { "User-Agent": "CilamAI/1.0" }
+        });
+        revoked = Boolean(res && res.ok);
+      }
+    } catch (err) {
+      console.warn("[OAuth] Token revocation failed (continuing local sign-out):", err && err.message ? err.message : err);
+    }
+    // Signing out starts a fresh usage cycle: reset this account's credits first.
+    resetUsageForCurrentUser();
     currentAuthUser = null;
-    saveStoredAuthUser(null);
+    currentAuthTokens = null;
+    signedIn = false;
+    saveStoredTokens(null);
     BrowserWindow.getAllWindows().forEach((win) => {
       win.webContents.send("auth:user", null);
     });
-    return { ok: true };
+    return { ok: true, revoked };
+  });
+  ipcMain.handle("auth:get-token", async () => {
+    const tokens = await ensureFreshTokens();
+    if (!tokens) return { ok: false };
+    return {
+      ok: true,
+      provider: tokens.provider || null,
+      accessToken: tokens.access_token || null,
+      refreshToken: tokens.refresh_token || null,
+      idToken: tokens.id_token || null,
+      scope: tokens.scope || "",
+      expiresAt: tokens.expires_at || null
+    };
   });
   ipcMain.handle("auth:set-user", async (_event, user) => {
     const saved = applyAndSaveUser(user);
@@ -2697,7 +3280,8 @@ ipcMain.handle("app:check-updates", async () => {
       backgroundColor: windowBackgroundColor(),
       webPreferences: {
         preload: join(__dirname, "../preload/index.mjs"),
-        sandbox: false
+        sandbox: false,
+        devTools: !app.isPackaged
       }
     });
     applyRestoredWindowBounds(win, windowState);
@@ -2711,10 +3295,10 @@ ipcMain.handle("app:check-updates", async () => {
         (input.control && input.shift && (key === "i" || key === "j"));
       if (toggle) {
         event.preventDefault();
-        win.webContents.toggleDevTools();
+        if (!app.isPackaged) win.webContents.toggleDevTools();
         return;
       }
-      if (app.isPackaged && input.control && key === "r") {
+      if (!app.isPackaged && input.control && key === "r") {
         event.preventDefault();
         if (input.shift) win.webContents.reloadIgnoringCache();
         else win.webContents.reload();
@@ -2753,7 +3337,7 @@ ipcMain.handle("app:check-updates", async () => {
       return { action: "deny" };
     });
     if (process.env.ELECTRON_RENDERER_URL) {
-      win.loadURL(process.env.ELECTRON_RENDERER_URL);
+      win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/signin.html`);
     } else {
       win.loadFile(join(__dirname, "../renderer/signin.html"));
       if (!app.isPackaged) {
@@ -2765,7 +3349,6 @@ ipcMain.handle("app:check-updates", async () => {
       }
     }
   }
-  let feedbackWindow = null;
   let signinWindow = null;
   function openSigninWindow() {
     if (signinWindow && !signinWindow.isDestroyed()) {
@@ -2793,7 +3376,8 @@ ipcMain.handle("app:check-updates", async () => {
       backgroundColor: "#0f1015",
       webPreferences: {
         preload: join(__dirname, "../preload/index.mjs"),
-        sandbox: false
+        sandbox: false,
+        devTools: !app.isPackaged
       }
     });
     signinWindow.setMenuBarVisibility(false);
@@ -2816,71 +3400,8 @@ ipcMain.handle("app:check-updates", async () => {
       signinWindow = null;
     });
   }
-  function openFeedbackWindow() {
-    if (feedbackWindow && !feedbackWindow.isDestroyed()) {
-      feedbackWindow.focus();
-      return;
-    }
-    const mainWin = BrowserWindow.getAllWindows().find((w) => w !== feedbackWindow && !w.isDestroyed());
-    feedbackWindow = new BrowserWindow({
-      title: "Provide Feedback - CilamAI",
-      icon: join(app.getAppPath(), "resources/icon.ico"),
-      width: 580,
-      height: 840,
-      minWidth: 480,
-      minHeight: 600,
-      parent: mainWin || void 0,
-      center: true,
-      resizable: false,
-      maximizable: false,
-      minimizable: false,
-      frame: false,
-      hasShadow: true,
-      thickFrame: true,
-      backgroundMaterial: "mica",
-      autoHideMenuBar: true,
-      backgroundColor: "#0f1015",
-      webPreferences: {
-        preload: join(__dirname, "../preload/index.mjs"),
-        sandbox: false
-      }
-    });
-    feedbackWindow.setMenuBarVisibility(false);
-    feedbackWindow.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url);
-      return { action: "deny" };
-    });
-    if (process.env.ELECTRON_RENDERER_URL) {
-      feedbackWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/feedback.html`);
-    } else {
-      feedbackWindow.loadFile(join(__dirname, "../renderer/feedback.html"));
-    }
-    feedbackWindow.webContents.on("did-finish-load", () => {
-      feedbackWindow.webContents.send("app:theme-changed", currentTheme);
-      if (currentCustomColors.accent) {
-        feedbackWindow.webContents.send("app:custom-colors-changed", currentCustomColors);
-      }
-    });
-    feedbackWindow.on("closed", () => {
-      feedbackWindow = null;
-    });
-  }
   ipcMain.handle("app:open-signin-window", () => {
     openSigninWindow();
-    return { ok: true };
-  });
-  ipcMain.handle("app:open-feedback-window", () => {
-    openFeedbackWindow();
-    return { ok: true };
-  });
-  ipcMain.handle("app:resize-feedback-window", (_event, { width, height } = {}) => {
-    if (feedbackWindow && !feedbackWindow.isDestroyed()) {
-      const w = Number(width) || 520;
-      const h = Number(height) || 340;
-      feedbackWindow.setMinimumSize(320, 200);
-      feedbackWindow.setSize(w, h, true);
-      feedbackWindow.center();
-    }
     return { ok: true };
   });
   function runGit(args, cwd) {
@@ -3018,24 +3539,33 @@ ipcMain.handle("app:check-updates", async () => {
     app.whenReady().then(async () => {
       app.setPath("userData", join(app.getPath("appData"), "CilamAI"));
       await applyProxyFromEnv();
+      // Restore the previous session: the signed-in account and its profile stay
+      // on disk, they must never be removed when the app starts.
+      restoreStoredSession();
       app.setAppUserModelId("com.olinai.app");
       Menu.setApplicationMenu(null);
       app.setUserTasks([]);
       createWindow();
+      // Re-add the account data from the provider API (background, non-blocking).
+      setTimeout(() => {
+        syncAccountProfileFromApi().catch(() => {});
+      }, 1500);
       const win = BrowserWindow.getAllWindows()[0];
       if (win) {
         win.webContents.once("did-finish-load", () => {
-          if (process.argv.includes("--whats-new")) {
-            win.webContents.send("task:show-release-notes");
-            return;
-          }
-          const releaseNotes = loadReleaseNotes();
-          const currentVersion = app.getVersion();
-          if (releaseNotes.lastShownVersion !== currentVersion) {
-            saveReleaseNotes({ lastShownVersion: currentVersion });
-            win.webContents.send("task:show-release-notes");
-            return;
-          }
+          setTimeout(() => {
+            if (process.argv.includes("--whats-new")) {
+              win.webContents.send("task:show-release-notes");
+              return;
+            }
+            const releaseNotes = loadReleaseNotes();
+            const currentVersion = app.getVersion();
+            if (releaseNotes.lastShownVersion !== currentVersion) {
+              saveReleaseNotes({ lastShownVersion: currentVersion });
+              win.webContents.send("task:show-release-notes");
+              return;
+            }
+          }, 3200);
           const apiKey = extractApiKey(process.argv);
           if (apiKey) {
             pendingApiKey = apiKey;
@@ -3068,7 +3598,7 @@ ipcMain.handle("app:check-updates", async () => {
           } else if (initialUser) {
             currentAuthUser = initialUser;
           }
-          if (initialUser) {
+          if (initialUser && isSessionActive()) {
             win.webContents.send("auth:user", initialUser);
           }
           if (avatarArg) {
